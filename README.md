@@ -195,6 +195,8 @@ O Amazon S3 foi configurado para utilizar o `index.html` como página inicial do
 
 **Concluído ✅**
 
+---
+
 ### Etapa 5 — HTTPS com Amazon CloudFront
 
 #### Objetivo
