@@ -1,0 +1,330 @@
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+  background: #f7f8fa;
+  color: #27303a;
+  line-height: 1.7;
+}
+
+/* CONTAINER */
+
+header,
+main,
+footer {
+  width: min(100% - 40px, 1050px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* HEADER */
+
+header {
+  margin-top: 40px;
+  padding: 55px 60px 45px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-bottom: 3px solid #2563eb;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.05);
+}
+
+header h1 {
+  margin: 0;
+  font-size: clamp(30px, 4vw, 44px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -1.2px;
+  color: #111827;
+}
+
+header h2 {
+  margin: 12px 0 22px;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: #2563eb;
+}
+
+header p {
+  margin: 0;
+  font-size: 14px;
+  color: #64748b;
+}
+
+/* CONTEÚDO */
+
+main {
+  padding: 45px 60px 20px;
+  background: #ffffff;
+  border-left: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+}
+
+/* SEÇÕES */
+
+section {
+  position: relative;
+  margin-bottom: 50px;
+  padding-bottom: 10px;
+}
+
+section:last-child {
+  margin-bottom: 0;
+}
+
+section > h2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  margin: 0 0 24px;
+
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+
+  color: #111827;
+}
+
+section > h2::before {
+  content: "";
+
+  width: 4px;
+  height: 22px;
+
+  border-radius: 2px;
+
+  background: #2563eb;
+}
+
+/* TEXTOS */
+
+section p {
+  max-width: 900px;
+  margin: 0 0 14px;
+
+  font-size: 15px;
+  color: #4b5563;
+}
+
+/* EXPERIÊNCIA E PROJETOS */
+
+article {
+  position: relative;
+
+  margin-bottom: 32px;
+  padding-left: 24px;
+
+  border-left: 2px solid #e5e7eb;
+}
+
+article:last-child {
+  margin-bottom: 0;
+}
+
+article::before {
+  content: "";
+
+  position: absolute;
+  left: -6px;
+  top: 5px;
+
+  width: 10px;
+  height: 10px;
+
+  border-radius: 50%;
+
+  background: #2563eb;
+}
+
+article h3 {
+  margin: 0 0 4px;
+
+  font-size: 18px;
+  font-weight: 700;
+
+  color: #111827;
+}
+
+article p {
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+/* LISTAS */
+
+ul {
+  margin: 12px 0 0;
+  padding-left: 20px;
+}
+
+li {
+  margin-bottom: 9px;
+
+  font-size: 14.5px;
+  color: #4b5563;
+}
+
+li::marker {
+  color: #2563eb;
+}
+
+/* COMPETÊNCIAS */
+
+section:nth-of-type(3) h3 {
+  display: inline-block;
+
+  margin: 5px 6px 7px 0;
+  padding: 5px 10px;
+
+  border: 1px solid #dbe3ec;
+  border-radius: 5px;
+
+  background: #f8fafc;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  color: #334155;
+}
+
+section:nth-of-type(3) h3 + p {
+  margin-bottom: 20px;
+}
+
+/* CERTIFICAÇÕES */
+
+section:nth-of-type(5) li {
+  padding: 4px 0;
+
+  font-weight: 500;
+  color: #374151;
+}
+
+/* FORMAÇÃO */
+
+section:nth-of-type(6) article {
+  border-left-color: #e5e7eb;
+}
+
+section:nth-of-type(6) article h3 {
+  font-size: 17px;
+}
+
+/* FOOTER */
+
+footer {
+  margin-bottom: 40px;
+  padding: 25px 60px;
+
+  background: #ffffff;
+
+  border: 1px solid #e5e7eb;
+
+  text-align: center;
+}
+
+footer p {
+  margin: 0;
+
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+/* EFEITO SUTIL */
+
+article:hover {
+  border-left-color: #bfdbfe;
+}
+
+section:nth-of-type(3) h3 {
+  transition: all 0.2s ease;
+}
+
+section:nth-of-type(3) h3:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+/* TABLET */
+
+@media (max-width: 750px) {
+  header {
+    margin-top: 20px;
+    padding: 40px 30px 35px;
+  }
+
+  main {
+    padding: 35px 30px 15px;
+  }
+
+  footer {
+    margin-bottom: 20px;
+    padding: 22px 30px;
+  }
+}
+
+/* CELULAR */
+
+@media (max-width: 500px) {
+  header,
+  main,
+  footer {
+    width: min(100% - 20px, 1050px);
+  }
+
+  header {
+    margin-top: 10px;
+    padding: 35px 22px 30px;
+  }
+
+  header h1 {
+    font-size: 29px;
+  }
+
+  header h2 {
+    font-size: 16px;
+  }
+
+  header p {
+    font-size: 13px;
+  }
+
+  main {
+    padding: 30px 22px 10px;
+  }
+
+  section {
+    margin-bottom: 40px;
+  }
+
+  section > h2 {
+    font-size: 15px;
+  }
+
+  article {
+    padding-left: 18px;
+  }
+
+  article h3 {
+    font-size: 17px;
+  }
+
+  li {
+    font-size: 14px;
+  }
+
+  footer {
+    margin-bottom: 10px;
+    padding: 20px;
+  }
+}
