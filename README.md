@@ -68,6 +68,10 @@ Já possuía a certificação **AWS Certified Cloud Practitioner**, concluída e
 
 A etapa de certificação foi concluída antes do início da implementação do projeto.
 
+### Status
+
+**Concluído ✅**
+
 ---
 
 ## Etapa 2 — HTML
@@ -98,7 +102,7 @@ Foi criado o currículo utilizando HTML, com estrutura organizada e elementos se
 
 ### Status
 
-Concluído.
+**Concluído ✅**
 
 ---
 
