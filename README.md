@@ -172,6 +172,25 @@ Em andamento.
 
 A próxima etapa será configurar o S3 para hospedagem do site estático e realizar os testes de acesso.
 
+### Configuração do Static Website Hosting
+
+Após realizar o upload dos arquivos, habilitei a hospedagem de site estático no bucket S3.
+
+Configurações utilizadas:
+
+- Hospedagem de site estático: ativada
+- Tipo de hospedagem: Hospedar um site estático
+- Documento de índice: `index.html`
+- Documento de erro: não configurado
+
+### Resultado
+
+O Amazon S3 foi configurado para utilizar o `index.html` como página inicial do site.
+
+### Status
+
+Em andamento.
+
 ---
 
 ## Objetivo profissional
