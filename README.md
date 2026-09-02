@@ -42,8 +42,8 @@ cloud-resume-challenge/
 - [x] JavaScript
 - [x] Banco de dados — DynamoDB
 - [x] API — API Gateway
-- [ ] Backend — Python/Lambda
-- [ ] Testes
+- [x] Backend — Python/Lambda
+- [x] Testes
 - [ ] Infrastructure as Code
 - [x] Controle de versão — Git/GitHub
 - [ ] CI/CD — Backend
@@ -725,6 +725,243 @@ A API e a rota já foram criadas, porém a integração com a Lambda ainda não 
 ### Status
 
 Em andamento.
+
+---
+
+## Etapa 10 — Python
+
+### Objetivo
+
+Criar uma função AWS Lambda utilizando Python para acessar o DynamoDB e retornar a quantidade de visitantes armazenada na tabela.
+
+Nesta etapa também foi configurada a permissão IAM necessária para que a Lambda pudesse consultar o DynamoDB.
+
+### Serviços utilizados
+
+- AWS Lambda
+- AWS IAM
+- Amazon DynamoDB
+- Amazon CloudWatch Logs
+
+### Passo a passo
+
+#### 1. Criar a função Lambda
+
+Acessei o serviço **AWS Lambda** pelo console da AWS.
+
+Selecionei **Criar função** e configurei:
+
+- Nome da função: `cloud-resume-counter`
+- Runtime: `Python 3.14`
+- Arquitetura: padrão da AWS
+- Região: `us-east-1`
+
+A função foi criada com uma role de execução própria:
+
+`cloud-resume-counter-role-lo5xeumx`
+
+A AWS também adicionou automaticamente a permissão básica necessária para que a Lambda pudesse enviar logs para o CloudWatch.
+
+---
+
+#### 2. Configurar a permissão IAM para o DynamoDB
+
+A função Lambda precisa acessar a tabela `CloudResumeVisitorCount`.
+
+Acessei:
+
+**IAM → Roles → cloud-resume-counter-role-lo5xeumx**
+
+Depois selecionei:
+
+**Add permissions → Create inline policy**
+
+Foi criada uma política específica para permitir somente as operações necessárias no DynamoDB.
+
+Política criada:
+
+`CloudResumeDynamoDBAccess`
+
+Configuração utilizada:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["dynamodb:GetItem", "dynamodb:UpdateItem"],
+      "Resource": "arn:aws:dynamodb:us-east-1:696537703431:table/CloudResumeVisitorCount"
+    }
+  ]
+}
+```
+
+A política permite:
+
+- `dynamodb:GetItem` — consultar o contador.
+- `dynamodb:UpdateItem` — atualizar o contador posteriormente.
+
+O acesso foi limitado especificamente à tabela `CloudResumeVisitorCount`, seguindo o princípio do menor privilégio.
+
+---
+
+#### 3. Configurar o código Python
+
+Na função Lambda, substituí o código inicial da AWS pelo código Python responsável por acessar o DynamoDB.
+
+O código utiliza a biblioteca `boto3` para comunicação com os serviços AWS.
+
+```python
+import json
+import boto3
+
+dynamodb = boto3.resource("dynamodb")
+table = dynamodb.Table("CloudResumeVisitorCount")
+
+
+def lambda_handler(event, context):
+
+    response = table.get_item(
+        Key={
+            "id": "visitor-count"
+        }
+    )
+
+    item = response.get("Item", {})
+
+    count = item.get("count", 0)
+
+    return {
+        "statusCode": 200,
+        "body": json.dumps({
+            "count": int(count)
+        })
+    }
+```
+
+A função realiza as seguintes operações:
+
+1. Importa `boto3`.
+2. Cria uma conexão com o DynamoDB.
+3. Seleciona a tabela `CloudResumeVisitorCount`.
+4. Consulta o item cujo `id` é `visitor-count`.
+5. Obtém o valor armazenado em `count`.
+6. Caso o item não seja encontrado, utiliza `0`.
+7. Retorna o contador em uma resposta HTTP com `statusCode 200`.
+
+---
+
+#### 4. Fazer o deploy da função
+
+Depois de inserir o código Python, selecionei **Deploy** no console da AWS Lambda.
+
+A AWS confirmou que a função foi atualizada com sucesso.
+
+---
+
+#### 5. Criar um evento de teste
+
+Para testar a função diretamente pela Lambda, acessei a aba **Test**.
+
+Criei um novo evento com:
+
+- Tipo de invocação: **Síncrona**
+- Nome do evento: `test-counter`
+- Compartilhamento: **Privado**
+- Modelo: nenhum
+- JSON do evento:
+
+```json
+{}
+```
+
+O evento não precisa enviar informações para a função, pois a própria Lambda sabe qual tabela e qual item do DynamoDB deve consultar.
+
+---
+
+#### 6. Executar o teste
+
+Executei a função através do botão **Testar**.
+
+A execução foi concluída com sucesso.
+
+Resultado retornado:
+
+```json
+{
+  "statusCode": 200,
+  "body": "{\"count\": 0}"
+}
+```
+
+O resultado confirmou que a Lambda conseguiu acessar o DynamoDB e recuperar corretamente o valor inicial do contador.
+
+---
+
+### Arquitetura da etapa
+
+```text
+AWS Lambda
+    │
+    │ boto3
+    ▼
+Amazon DynamoDB
+    │
+    ▼
+CloudResumeVisitorCount
+    │
+    └── visitor-count
+            │
+            └── count = 0
+```
+
+### Fluxo da execução
+
+```text
+Evento de teste {}
+       │
+       ▼
+Lambda cloud-resume-counter
+       │
+       │ GetItem
+       ▼
+DynamoDB
+       │
+       │ count = 0
+       ▼
+Lambda
+       │
+       ▼
+HTTP 200
+       │
+       └── {"count": 0}
+```
+
+### Resultado
+
+A função Lambda foi criada e configurada com Python 3.14.
+
+A Lambda conseguiu acessar o DynamoDB utilizando `boto3` e as permissões IAM configuradas especificamente para a tabela do projeto.
+
+O teste foi executado com sucesso e retornou:
+
+```json
+{
+  "statusCode": 200,
+  "body": "{\"count\": 0}"
+}
+```
+
+### Observação
+
+Nesta primeira implementação, a Lambda apenas consulta o contador.
+
+A atualização do valor será utilizada posteriormente para implementar o contador de visitantes completo.
+
+### Status
+
+Concluído ✅
 
 ---
 
