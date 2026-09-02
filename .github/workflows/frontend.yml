@@ -9,14 +9,25 @@ on:
       - ".github/workflows/frontend.yml"
 
 jobs:
-  test:
+  deploy:
     runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      AWS_DEFAULT_REGION: us-east-1
 
     steps:
       - name: Checkout do codigo
         uses: actions/checkout@v6
 
-      - name: Verificar frontend
-        run: |
-          echo "Frontend encontrado"
-          ls -la frontend
+      - name: Configurar credenciais AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::696537703431:role/github-actions-frontend-oidc-role
+          aws-region: us-east-1
+
+      - name: Testar acesso AWS
+        run: aws sts get-caller-identity
