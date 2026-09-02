@@ -7,3 +7,16 @@ on:
     paths:
       - "frontend/**"
       - ".github/workflows/frontend.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v6
+
+      - name: Verificar frontend
+        run: |
+          echo "Frontend encontrado"
+          ls -la frontend
