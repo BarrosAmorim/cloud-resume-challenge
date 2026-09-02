@@ -54,7 +54,7 @@ cloud-resume-challenge/
 - [x] API — API Gateway
 - [x] Backend — Python/Lambda
 - [x] Testes
-- [ ] Infrastructure as Code
+- [x] Infrastructure as Code
 - [x] Controle de versão — Git/GitHub
 - [ ] CI/CD — Backend
 - [ ] CI/CD — Frontend
@@ -1627,6 +1627,858 @@ Com isso, foi possível validar automaticamente o comportamento principal da fun
 ### Status
 
 ✅ **Concluído**
+
+---
+
+# 12. Infrastructure as Code — AWS SAM
+
+## Objetivo
+
+Transformar a infraestrutura do backend do Cloud Resume Challenge em **Infrastructure as Code (IaC)** utilizando **AWS SAM (Serverless Application Model)** e **AWS CloudFormation**.
+
+Até esta etapa, os recursos do backend haviam sido criados e configurados manualmente através do AWS Management Console.
+
+Nesta etapa, a infraestrutura passou a ser descrita em um arquivo:
+
+```text
+template.yaml
+```
+
+A partir desse arquivo, o AWS SAM é responsável por gerar e provisionar os recursos necessários na AWS através do CloudFormation.
+
+O objetivo é que a infraestrutura possa ser reproduzida sem precisar criar manualmente cada recurso pelo Console.
+
+---
+
+## 12.1 O que é Infrastructure as Code?
+
+Infrastructure as Code, ou **IaC**, é a prática de definir infraestrutura através de arquivos de configuração.
+
+Em vez de realizar várias configurações manualmente no Console da AWS:
+
+```text
+Console AWS
+    ↓
+Criar DynamoDB
+    ↓
+Criar Lambda
+    ↓
+Criar IAM Role
+    ↓
+Criar API Gateway
+    ↓
+Configurar permissões
+    ↓
+Configurar integração
+```
+
+a infraestrutura passa a ser descrita em código:
+
+```text
+template.yaml
+      ↓
+   SAM CLI
+      ↓
+CloudFormation
+      ↓
+AWS
+```
+
+Isso torna a infraestrutura:
+
+- Reproduzível
+- Versionável
+- Automatizável
+- Mais fácil de documentar
+- Mais fácil de modificar
+- Mais fácil de recriar em outro ambiente
+
+---
+
+## 12.2 Por que utilizar AWS SAM?
+
+O projeto utiliza principalmente serviços serverless da AWS:
+
+```text
+Lambda
+DynamoDB
+API Gateway
+IAM
+```
+
+Por isso, o **AWS SAM** foi escolhido como ferramenta de Infrastructure as Code.
+
+O SAM é uma extensão do AWS CloudFormation voltada para aplicações serverless.
+
+Isso permite descrever recursos como:
+
+```yaml
+AWS::Serverless::Function
+AWS::Serverless::HttpApi
+```
+
+em um template YAML.
+
+Durante o deploy, o SAM transforma o template em recursos do CloudFormation e realiza a implantação na AWS.
+
+---
+
+## 12.3 Instalação do AWS SAM CLI
+
+Foi utilizado o **AWS SAM CLI** para validar, construir e realizar o deploy da infraestrutura.
+
+Versão utilizada:
+
+```text
+AWS SAM CLI 1.165.0
+```
+
+Também foi utilizado o AWS CLI.
+
+A configuração da AWS foi validada através do comando:
+
+```powershell
+aws configure list
+```
+
+E a identidade da conta foi confirmada utilizando:
+
+```powershell
+aws sts get-caller-identity
+```
+
+---
+
+## 12.4 Estrutura do projeto
+
+A estrutura utilizada para o projeto ficou:
+
+```text
+cloud-resume-challenge/
+│
+├── frontend/
+│   ├── index.html
+│   ├── style.css
+│   └── script.js
+│
+├── backend/
+│   ├── lambda_function.py
+│   └── test_lambda_function.py
+│
+├── template.yaml
+├── .gitignore
+└── README.md
+```
+
+O arquivo responsável pela infraestrutura é:
+
+```text
+template.yaml
+```
+
+---
+
+## 12.5 Template SAM
+
+O arquivo `template.yaml` descreve a infraestrutura do backend.
+
+```yaml
+AWSTemplateFormatVersion: "2010-09-09"
+
+Transform: AWS::Serverless-2016-10-31
+
+Description: >
+  Infraestrutura do Cloud Resume Challenge
+  utilizando AWS SAM.
+
+Resources:
+  CloudResumeVisitorCount:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      TableName: CloudResumeVisitorCountSAM
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+      Tags:
+        - Key: Project
+          Value: CloudResumeChallenge
+
+  CloudResumeCounter:
+    Type: AWS::Serverless::Function
+
+    Properties:
+      FunctionName: cloud-resume-counter-sam
+      Runtime: python3.14
+      Handler: lambda_function.lambda_handler
+      CodeUri: backend/
+      Timeout: 3
+
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CloudResumeVisitorCount
+
+      Events:
+        CountApi:
+          Type: HttpApi
+
+          Properties:
+            ApiId: !Ref CloudResumeApi
+            Path: /count
+            Method: GET
+
+  CloudResumeApi:
+    Type: AWS::Serverless::HttpApi
+
+    Properties:
+      Name: CloudResumeAPI-SAM
+      StageName: $default
+
+      CorsConfiguration:
+        AllowOrigins:
+          - https://barrosamorimd.work
+
+        AllowMethods:
+          - GET
+```
+
+---
+
+## 12.6 Recursos definidos no template
+
+O template possui três recursos principais.
+
+### DynamoDB
+
+```yaml
+CloudResumeVisitorCount:
+  Type: AWS::DynamoDB::Table
+```
+
+Esse recurso cria a tabela:
+
+```text
+CloudResumeVisitorCountSAM
+```
+
+Configuração:
+
+```text
+Billing Mode:
+PAY_PER_REQUEST
+```
+
+Chave primária:
+
+```text
+id
+```
+
+Tipo:
+
+```text
+String
+```
+
+---
+
+### Lambda
+
+```yaml
+CloudResumeCounter:
+  Type: AWS::Serverless::Function
+```
+
+A função criada é:
+
+```text
+cloud-resume-counter-sam
+```
+
+Runtime:
+
+```text
+Python 3.14
+```
+
+Handler:
+
+```text
+lambda_function.lambda_handler
+```
+
+Código:
+
+```text
+backend/
+```
+
+Timeout:
+
+```text
+3 segundos
+```
+
+---
+
+### API Gateway
+
+```yaml
+CloudResumeApi:
+  Type: AWS::Serverless::HttpApi
+```
+
+Nome:
+
+```text
+CloudResumeAPI-SAM
+```
+
+Stage:
+
+```text
+$default
+```
+
+A API possui a rota:
+
+```text
+GET /count
+```
+
+---
+
+## 12.7 Permissões IAM
+
+A Lambda precisa de permissão para acessar o DynamoDB.
+
+Em vez de criar manualmente uma IAM Role e adicionar políticas pelo Console, o SAM utiliza:
+
+```yaml
+Policies:
+  - DynamoDBCrudPolicy:
+      TableName: !Ref CloudResumeVisitorCount
+```
+
+O `!Ref` faz referência ao recurso DynamoDB definido no próprio template.
+
+Dessa forma, a permissão fica vinculada à tabela criada pela stack.
+
+A infraestrutura passa a ter:
+
+```text
+Lambda
+   │
+   │ IAM Policy
+   ▼
+DynamoDB
+```
+
+O CloudFormation/SAM também cria a IAM Role de execução da Lambda.
+
+---
+
+## 12.8 Integração entre API Gateway e Lambda
+
+A integração foi definida diretamente no template:
+
+```yaml
+Events:
+  CountApi:
+    Type: HttpApi
+
+    Properties:
+      ApiId: !Ref CloudResumeApi
+      Path: /count
+      Method: GET
+```
+
+Isso significa que o SAM configura automaticamente:
+
+```text
+GET /count
+     │
+     ▼
+API Gateway
+     │
+     ▼
+Lambda
+```
+
+Também é criada automaticamente a permissão necessária para o API Gateway invocar a Lambda.
+
+---
+
+## 12.9 CORS
+
+Como o frontend está hospedado em:
+
+```text
+https://barrosamorimd.work
+```
+
+foi configurado CORS no API Gateway:
+
+```yaml
+CorsConfiguration:
+  AllowOrigins:
+    - https://barrosamorimd.work
+
+  AllowMethods:
+    - GET
+```
+
+Isso permite que o JavaScript do currículo realize requisições para a API.
+
+Fluxo:
+
+```text
+barrosamorimd.work
+        │
+        │ GET /count
+        ▼
+API Gateway
+```
+
+---
+
+## 12.10 Validação do template
+
+Antes do deploy, o template foi validado utilizando:
+
+```powershell
+sam validate --lint
+```
+
+Resultado:
+
+```text
+template.yaml is a valid SAM Template
+```
+
+Isso confirmou que a estrutura YAML e a sintaxe do template estavam corretas.
+
+---
+
+## 12.11 Build da aplicação
+
+Depois da validação foi executado:
+
+```powershell
+sam build
+```
+
+O SAM processou o código da Lambda localizado em:
+
+```text
+backend/
+```
+
+Resultado:
+
+```text
+Build Succeeded
+```
+
+Os artefatos gerados ficaram em:
+
+```text
+.aws-sam/build
+```
+
+A pasta `.aws-sam/` foi adicionada ao `.gitignore`, pois contém arquivos gerados pelo processo de build.
+
+---
+
+## 12.12 Deploy utilizando SAM
+
+O primeiro deploy foi realizado utilizando:
+
+```powershell
+sam deploy --guided
+```
+
+O modo `--guided` permite configurar os parâmetros iniciais da implantação.
+
+Foi utilizada a stack:
+
+```text
+cloud-resume-challenge
+```
+
+Região:
+
+```text
+us-east-1
+```
+
+O SAM também criou automaticamente o bucket utilizado para armazenar os artefatos necessários ao deployment.
+
+Após a configuração inicial, foi criado o arquivo:
+
+```text
+samconfig.toml
+```
+
+Esse arquivo armazena as configurações utilizadas pelo SAM para os próximos deployments.
+
+---
+
+## 12.13 CloudFormation
+
+O AWS SAM utiliza o **AWS CloudFormation** para realizar o provisionamento da infraestrutura.
+
+Após o deploy, foi criada a stack:
+
+```text
+cloud-resume-challenge
+```
+
+No AWS CloudFormation, o status final da stack ficou:
+
+```text
+UPDATE_COMPLETE
+```
+
+A stack passou a gerenciar os recursos criados pelo template.
+
+Arquitetura:
+
+```text
+template.yaml
+      │
+      ▼
+    AWS SAM
+      │
+      ▼
+CloudFormation
+      │
+      ├── DynamoDB
+      ├── Lambda
+      ├── IAM Role
+      └── API Gateway
+```
+
+---
+
+## 12.14 Recursos criados automaticamente
+
+Através do template, o CloudFormation criou:
+
+```text
+CloudResumeVisitorCount
+        │
+        └── DynamoDB
+            CloudResumeVisitorCountSAM
+
+CloudResumeCounter
+        │
+        └── Lambda
+            cloud-resume-counter-sam
+
+CloudResumeCounterRole
+        │
+        └── IAM Role
+
+CloudResumeApi
+        │
+        └── API Gateway
+            CloudResumeAPI-SAM
+
+CloudResumeCounterCountApiPermission
+        │
+        └── Permissão
+            API Gateway → Lambda
+
+CloudResumeApiApiGatewayDefaultStage
+        │
+        └── Stage
+            $default
+```
+
+---
+
+## 12.15 Teste da Lambda
+
+Depois do deploy, a Lambda foi testada diretamente utilizando o AWS CLI.
+
+Comando:
+
+```powershell
+aws lambda invoke --function-name cloud-resume-counter-sam --payload "{}" response.json
+```
+
+Na primeira execução foi retornado:
+
+```json
+{
+  "statusCode": 200,
+  "body": "{\"count\": 1}"
+}
+```
+
+Uma segunda execução retornou:
+
+```json
+{
+  "statusCode": 200,
+  "body": "{\"count\": 2}"
+}
+```
+
+Isso confirmou que:
+
+```text
+Lambda
+   ↓
+DynamoDB
+   ↓
+UpdateItem
+   ↓
+count + 1
+```
+
+estava funcionando corretamente.
+
+---
+
+## 12.16 Teste da API Gateway
+
+O endpoint da nova API foi obtido através do comando:
+
+```powershell
+sam list endpoints --stack-name cloud-resume-challenge
+```
+
+O endpoint retornado foi:
+
+```text
+https://7qai572l60.execute-api.us-east-1.amazonaws.com/$default/count
+```
+
+A API foi testada utilizando:
+
+```powershell
+curl.exe https://7qai572l60.execute-api.us-east-1.amazonaws.com/$default/count
+```
+
+Resultado:
+
+```json
+{
+  "count": 3
+}
+```
+
+Esse teste confirmou que a integração completa estava funcionando.
+
+---
+
+## 12.17 Fluxo completo
+
+A execução completa passou a funcionar da seguinte maneira:
+
+```text
+Usuário
+   │
+   │ acessa currículo
+   ▼
+Frontend
+   │
+   │ JavaScript
+   │ GET /count
+   ▼
+API Gateway
+   │
+   │ Invoca
+   ▼
+AWS Lambda
+   │
+   │ UpdateItem
+   │ count + 1
+   ▼
+DynamoDB
+   │
+   │ retorna novo valor
+   ▼
+Lambda
+   │
+   ▼
+API Gateway
+   │
+   ▼
+JavaScript
+   │
+   ▼
+Contador exibido
+```
+
+---
+
+## 12.18 Validação da infraestrutura
+
+A infraestrutura criada pelo SAM foi validada através de diferentes etapas:
+
+```text
+sam validate
+      ↓
+Template válido
+      ↓
+sam build
+      ↓
+Build Succeeded
+      ↓
+sam deploy
+      ↓
+CloudFormation
+      ↓
+Stack criada/atualizada
+      ↓
+Lambda test
+      ↓
+count = 1
+      ↓
+Lambda test
+      ↓
+count = 2
+      ↓
+API test
+      ↓
+count = 3
+```
+
+---
+
+## 12.19 Infraestrutura antiga e nova
+
+Durante a implementação da Infrastructure as Code, a infraestrutura original criada manualmente pelo Console foi mantida.
+
+A infraestrutura original continua separada:
+
+```text
+INFRAESTRUTURA ORIGINAL
+
+DynamoDB
+CloudResumeVisitorCount
+
+Lambda
+cloud-resume-counter
+
+API Gateway
+CloudResumeAPI
+```
+
+A nova infraestrutura gerenciada pelo SAM é:
+
+```text
+INFRAESTRUTURA SAM
+
+DynamoDB
+CloudResumeVisitorCountSAM
+
+Lambda
+cloud-resume-counter-sam
+
+API Gateway
+CloudResumeAPI-SAM
+```
+
+Essa estratégia permitiu testar a infraestrutura criada pelo SAM sem interromper o site que já estava funcionando.
+
+---
+
+## 12.20 Resultado
+
+A etapa de Infrastructure as Code foi concluída utilizando **AWS SAM e AWS CloudFormation**.
+
+A infraestrutura do backend passou a ser definida através do arquivo:
+
+```text
+template.yaml
+```
+
+O template é responsável por definir:
+
+```text
+DynamoDB
+Lambda
+IAM
+API Gateway
+Integrações
+Permissões
+CORS
+```
+
+A infraestrutura foi validada, construída e implantada utilizando:
+
+```text
+sam validate
+sam build
+sam deploy
+```
+
+Após o deployment, os recursos foram gerenciados pelo AWS CloudFormation.
+
+A API também foi testada com sucesso:
+
+```text
+GET /count
+```
+
+Resultado:
+
+```json
+{
+  "count": 3
+}
+```
+
+Isso confirmou que a infraestrutura definida como código está funcionando corretamente.
+
+---
+
+## 12.21 Arquitetura final da Infrastructure as Code
+
+```text
+                    template.yaml
+                         │
+                         ▼
+                    AWS SAM CLI
+                         │
+                         ▼
+                  AWS CloudFormation
+                         │
+          ┌──────────────┼──────────────┐
+          │              │              │
+          ▼              ▼              ▼
+      DynamoDB         Lambda       API Gateway
+          │              │              │
+          │              │              │
+          │         IAM Role            │
+          │              │              │
+          └──────────────┼──────────────┘
+                         │
+                         ▼
+                  GET /count
+                         │
+                         ▼
+                    {"count": 3}
+```
+
+---
+
+## Status
+
+**Infrastructure as Code — Concluído ✅**
 
 ---
 

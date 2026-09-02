@@ -2,7 +2,7 @@ import json
 import boto3
 
 dynamodb = boto3.resource("dynamodb")
-table = dynamodb.Table("CloudResumeVisitorCount")
+table = dynamodb.Table("CloudResumeVisitorCountSAM")
 
 
 def lambda_handler(event, context):

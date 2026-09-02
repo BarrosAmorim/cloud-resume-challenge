@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'Infraestrutura do Cloud Resume Challenge utilizando AWS SAM.
+
+  '
+Resources:
+  CloudResumeVisitorCount:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: CloudResumeVisitorCount
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: id
+        AttributeType: S
+      KeySchema:
+      - AttributeName: id
+        KeyType: HASH
+      Tags:
+      - Key: Project
+        Value: CloudResumeChallenge
+    Metadata:
+      SamResourceId: CloudResumeVisitorCount
+  CloudResumeCounter:
+    Type: AWS::Serverless::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      FunctionName: cloud-resume-counter
+      Runtime: python3.14
+      Handler: lambda_function.lambda_handler
+      CodeUri: s3://cloud-resume-rafael-2026/854e01fe7d69c4087dcf24692d62d4bf
+      Timeout: 30
+      Role: arn:aws:iam::696537703431:role/service-role/cloud-resume-counter-role-lo5xeumx
+      Events:
+        CountApi:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: CloudResumeApi
+            Path: /count
+            Method: GET
+    Metadata:
+      SamResourceId: CloudResumeCounter
+  CloudResumeApi:
+    Type: AWS::Serverless::HttpApi
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Name: CloudResumeAPI
+      StageName: $default
+      CorsConfiguration:
+        AllowOrigins:
+        - https://barrosamorimd.work
+        AllowMethods:
+        - GET
+    Metadata:
+      SamResourceId: CloudResumeApi

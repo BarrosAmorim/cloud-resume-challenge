@@ -11,3 +11,6 @@ env/
 
 # Variáveis de ambiente
 .env
+
+# AWS SAM
+.aws-sam/

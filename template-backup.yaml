@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Transform: AWS::Serverless-2016-10-31
+
+Description: >
+  Infraestrutura do Cloud Resume Challenge
+  utilizando AWS SAM.
+
+Resources:
+  CloudResumeVisitorCount:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CloudResumeVisitorCount
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+      Tags:
+        - Key: Project
+          Value: CloudResumeChallenge
+
+  CloudResumeCounter:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cloud-resume-counter
+      Runtime: python3.14
+      Handler: lambda_function.lambda_handler
+      CodeUri: backend/
+      Timeout: 30
+
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:UpdateItem
+              Resource: !GetAtt CloudResumeVisitorCount.Arn
+
+      Events:
+        CountApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CloudResumeApi
+            Path: /count
+            Method: GET
+
+  CloudResumeApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+
+      CorsConfiguration:
+        AllowOrigins:
+          - https://barrosamorimd.work
+        AllowMethods:
+          - GET
