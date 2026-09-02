@@ -57,7 +57,7 @@ cloud-resume-challenge/
 - [x] Infrastructure as Code
 - [x] Controle de versão — Git/GitHub
 - [x] CI/CD — Backend
-- [ ] CI/CD — Frontend
+- [x] CI/CD — Frontend
 - [ ] Blog post
 
 ---
@@ -3535,6 +3535,938 @@ AWS atualizada
 ### Status
 
 **Etapa 14 — CI/CD (Back-end): Concluída ✅**
+
+---
+
+## 15. CI/CD (Front-end)
+
+### Objetivo
+
+Configurar um pipeline de **CI/CD para o frontend** utilizando GitHub Actions.
+
+A ideia é que alterações realizadas no código do currículo sejam publicadas automaticamente na AWS, sem precisar acessar o console da AWS ou executar comandos manualmente no computador.
+
+O fluxo implementado ficou:
+
+```text
+Alteração no frontend
+        │
+        │ git push
+        ▼
+      GitHub
+        │
+        ▼
+  GitHub Actions
+        │
+        │ OIDC
+        ▼
+       AWS
+        │
+        ▼
+       S3
+        │
+        ▼
+   CloudFront
+        │
+        ▼
+Currículo online
+```
+
+O resultado esperado é que uma alteração no código do frontend seja refletida automaticamente no currículo publicado.
+
+---
+
+### 15.1 CI/CD do frontend
+
+Na etapa anterior foi criado o pipeline de CI/CD do backend.
+
+O pipeline do backend é responsável por alterações relacionadas a:
+
+```text
+backend/
+template.yaml
+```
+
+Já nesta etapa foi criado um segundo workflow específico para o frontend.
+
+A separação ficou:
+
+```text
+Backend
+    │
+    └── backend.yml
+            │
+            └── Lambda / API / DynamoDB
+
+
+Frontend
+    │
+    └── frontend.yml
+            │
+            └── S3 / CloudFront
+```
+
+Dessa forma, uma alteração no backend não precisa executar o pipeline do frontend, e uma alteração no frontend não precisa executar o pipeline do backend.
+
+---
+
+### 15.2 Organização do repositório
+
+O projeto continua utilizando o mesmo repositório GitHub:
+
+```text
+cloud-resume-challenge
+```
+
+A estrutura ficou:
+
+```text
+cloud-resume-challenge/
+│
+├── backend/
+│   ├── lambda_function.py
+│   └── test_lambda_function.py
+│
+├── frontend/
+│   ├── index.html
+│   ├── style.css
+│   └── script.js
+│
+├── template.yaml
+│
+├── samconfig.toml
+│
+├── README.md
+│
+└── .github/
+    └── workflows/
+        ├── backend.yml
+        └── frontend.yml
+```
+
+O desafio oficial recomenda um segundo repositório para o frontend. Neste projeto, foi utilizada uma adaptação mantendo frontend e backend no mesmo repositório, mas com pipelines independentes.
+
+---
+
+### 15.3 Por que utilizar um workflow separado?
+
+O workflow do backend possui filtros específicos para alterações relacionadas ao backend.
+
+No `backend.yml` foi configurado:
+
+```yaml
+paths:
+  - "backend/**"
+  - "template.yaml"
+  - ".github/workflows/backend.yml"
+```
+
+Isso significa que alterações em arquivos do frontend, por exemplo:
+
+```text
+frontend/index.html
+frontend/style.css
+frontend/script.js
+```
+
+não acionam o pipeline do backend.
+
+Para o frontend foi criado:
+
+```text
+.github/workflows/frontend.yml
+```
+
+com filtros específicos:
+
+```yaml
+paths:
+  - "frontend/**"
+  - ".github/workflows/frontend.yml"
+```
+
+Assim:
+
+```text
+Alteração em backend/
+        ↓
+Backend CI/CD
+        ↓
+Frontend CI/CD não executa
+```
+
+E:
+
+```text
+Alteração em frontend/
+        ↓
+Frontend CI/CD
+        ↓
+Backend CI/CD não executa
+```
+
+Essa separação evita execuções desnecessárias.
+
+---
+
+### 15.4 Criação do workflow
+
+Foi criada a pasta:
+
+```text
+.github/workflows/
+```
+
+O novo arquivo criado foi:
+
+```text
+frontend.yml
+```
+
+Inicialmente o arquivo estava vazio.
+
+Ao realizar um commit com o arquivo vazio, o GitHub apresentou o erro:
+
+```text
+No event triggers defined in `on`
+```
+
+Isso aconteceu porque o GitHub identificou o arquivo como um workflow, mas não encontrou a configuração de eventos `on:`.
+
+O problema foi corrigido adicionando a configuração inicial:
+
+```yaml
+name: Frontend CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend.yml"
+```
+
+---
+
+### 15.5 Primeiro teste do workflow
+
+Depois da configuração do evento, foi criado um job inicial para verificar se o GitHub Actions conseguia acessar o projeto e localizar o frontend.
+
+O teste utilizado foi:
+
+```yaml
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v6
+
+      - name: Verificar frontend
+        run: |
+          echo "Frontend encontrado"
+          ls -la frontend
+```
+
+O workflow foi executado com sucesso.
+
+Resultado:
+
+```text
+Checkout do codigo       ✅
+Verificar frontend       ✅
+```
+
+Esse primeiro teste confirmou que o GitHub Actions estava conseguindo executar corretamente o workflow.
+
+---
+
+### 15.6 Autenticação com AWS utilizando OIDC
+
+Para permitir que o GitHub Actions acessasse a AWS, foi utilizado **OpenID Connect (OIDC)**.
+
+O OIDC permite que o GitHub Actions obtenha credenciais temporárias da AWS sem armazenar Access Key e Secret Key de longa duração no repositório.
+
+A arquitetura de autenticação ficou:
+
+```text
+GitHub Actions
+      │
+      │ Token OIDC
+      ▼
+GitHub OIDC Provider
+      │
+      ▼
+AWS IAM
+      │
+      ▼
+IAM Role
+      │
+      ▼
+Credenciais temporárias
+      │
+      ▼
+S3 / CloudFront
+```
+
+---
+
+### 15.7 Provedor OIDC
+
+Foi utilizado o provedor OIDC do GitHub já configurado na conta AWS.
+
+Configuração:
+
+```text
+Provider:
+token.actions.githubusercontent.com
+
+Audience:
+sts.amazonaws.com
+```
+
+A documentação do GitHub recomenda utilizar:
+
+```text
+https://token.actions.githubusercontent.com
+```
+
+como URL do provedor e:
+
+```text
+sts.amazonaws.com
+```
+
+como audience para a autenticação com AWS.
+
+---
+
+### 15.8 Criação da IAM Role do frontend
+
+Foi criada uma Role específica para o pipeline do frontend:
+
+```text
+github-actions-frontend-oidc-role
+```
+
+A ideia foi não utilizar a mesma Role do backend.
+
+A arquitetura ficou:
+
+```text
+GitHub Actions Backend
+        │
+        ▼
+github-actions-oidc-role
+        │
+        └── Backend
+
+
+GitHub Actions Frontend
+        │
+        ▼
+github-actions-frontend-oidc-role
+        │
+        └── Frontend
+```
+
+Essa separação permite controlar as permissões de cada pipeline de forma independente.
+
+---
+
+### 15.9 Trust Policy da Role
+
+Durante a configuração houve um problema de autorização:
+
+```text
+Not authorized to perform sts:AssumeRoleWithWebIdentity
+```
+
+O problema não estava nas permissões do S3 ou CloudFront.
+
+A falha acontecia porque a **Trust Policy** da nova Role não correspondia ao identificador `sub` enviado pelo GitHub OIDC.
+
+O repositório utiliza o formato de `sub` com IDs imutáveis do proprietário e do repositório.
+
+A condição utilizada foi:
+
+```text
+repo:BarrosAmorim@24548784/cloud-resume-challenge@1353973394:ref:refs/heads/main
+```
+
+A Trust Policy final ficou restrita à execução do workflow no branch `main`.
+
+Exemplo:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::<AWS_ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+          "token.actions.githubusercontent.com:sub": "repo:BarrosAmorim@<OWNER_ID>/cloud-resume-challenge@<REPOSITORY_ID>:ref:refs/heads/main"
+        }
+      }
+    }
+  ]
+}
+```
+
+Essa configuração impede que qualquer repositório do GitHub tente assumir essa Role. A confiança fica limitada ao repositório e branch definidos. O GitHub recomenda restringir a condição `sub` na Trust Policy para evitar que repositórios não autorizados obtenham acesso aos recursos da AWS.
+
+---
+
+### 15.10 Política de permissões
+
+Foi criada uma política específica:
+
+```text
+CloudResumeFrontendDeploy
+```
+
+Essa política foi anexada à:
+
+```text
+github-actions-frontend-oidc-role
+```
+
+O objetivo foi permitir somente as operações necessárias para publicar o frontend.
+
+A política utilizada foi:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "S3BucketAccess",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+      "Resource": "arn:aws:s3:::cloud-resume-rafael-2026"
+    },
+    {
+      "Sid": "S3ObjectAccess",
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::cloud-resume-rafael-2026/*"
+    },
+    {
+      "Sid": "CloudFrontInvalidation",
+      "Effect": "Allow",
+      "Action": "cloudfront:CreateInvalidation",
+      "Resource": "arn:aws:cloudfront::<AWS_ACCOUNT_ID>:distribution/EPIQFSJKWMN9X"
+    }
+  ]
+}
+```
+
+---
+
+### 15.11 Permissões do Amazon S3
+
+O pipeline precisa conseguir atualizar os arquivos do currículo.
+
+Foram utilizadas as seguintes permissões:
+
+```text
+s3:ListBucket
+s3:GetBucketLocation
+s3:PutObject
+s3:GetObject
+s3:DeleteObject
+```
+
+O bucket utilizado foi:
+
+```text
+cloud-resume-rafael-2026
+```
+
+As operações sobre o bucket ficaram restritas ao recurso:
+
+```text
+arn:aws:s3:::cloud-resume-rafael-2026
+```
+
+As operações sobre os objetos ficaram restritas a:
+
+```text
+arn:aws:s3:::cloud-resume-rafael-2026/*
+```
+
+Isso permite que o GitHub Actions publique e atualize os arquivos do frontend sem conceder acesso geral aos demais buckets da conta.
+
+---
+
+### 15.12 Permissão para CloudFront
+
+Também foi adicionada a permissão:
+
+```text
+cloudfront:CreateInvalidation
+```
+
+Ela foi restringida à distribuição utilizada pelo currículo:
+
+```text
+Distribution ID:
+EPIQFSJKWMN9X
+```
+
+Dessa forma, o GitHub Actions pode solicitar uma invalidação somente para a distribuição utilizada pelo projeto.
+
+---
+
+### 15.13 Configuração do workflow
+
+Depois de configurar o OIDC e a IAM Role, o workflow foi configurado para autenticar na AWS.
+
+A configuração utilizada foi:
+
+```yaml
+name: Frontend CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      AWS_DEFAULT_REGION: us-east-1
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v6
+
+      - name: Configurar credenciais AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::<AWS_ACCOUNT_ID>:role/github-actions-frontend-oidc-role
+          aws-region: us-east-1
+
+      - name: Testar acesso AWS
+        run: aws sts get-caller-identity
+
+      - name: Publicar frontend no S3
+        run: aws s3 sync frontend/ s3://cloud-resume-rafael-2026 --delete
+
+      - name: Invalidar cache do CloudFront
+        run: aws cloudfront create-invalidation --distribution-id EPIQFSJKWMN9X --paths "/*"
+```
+
+O uso de:
+
+```yaml
+id-token: write
+```
+
+permite que o workflow solicite o token OIDC do GitHub. Essa permissão, por si só, não concede acesso aos recursos da AWS; ela permite que o workflow obtenha o token utilizado na autenticação.
+
+A ação:
+
+```text
+aws-actions/configure-aws-credentials
+```
+
+realiza a troca do token OIDC por credenciais temporárias da AWS.
+
+---
+
+### 15.14 Teste de autenticação
+
+Antes de permitir alterações no S3, foi realizado um teste somente de autenticação.
+
+Foi utilizado:
+
+```bash
+aws sts get-caller-identity
+```
+
+Inicialmente ocorreu o erro:
+
+```text
+Not authorized to perform sts:AssumeRoleWithWebIdentity
+```
+
+A Trust Policy foi então corrigida para utilizar o `sub` correto do GitHub OIDC.
+
+Depois da correção, o workflow foi executado novamente e a autenticação funcionou:
+
+```text
+Checkout do codigo                 ✅
+Configurar credenciais AWS via OIDC ✅
+Testar acesso AWS                   ✅
+```
+
+Isso confirmou que o GitHub Actions conseguiu assumir a Role da AWS.
+
+---
+
+### 15.15 Publicação automática no S3
+
+Depois de validar a autenticação, foi adicionada a etapa responsável por publicar o frontend:
+
+```bash
+aws s3 sync frontend/ s3://cloud-resume-rafael-2026 --delete
+```
+
+O comando sincroniza a pasta:
+
+```text
+frontend/
+```
+
+com a raiz do bucket:
+
+```text
+s3://cloud-resume-rafael-2026
+```
+
+A estrutura fica:
+
+```text
+GitHub
+│
+└── frontend/
+    ├── index.html
+    ├── style.css
+    └── script.js
+            │
+            ▼
+           S3
+            │
+            ├── index.html
+            ├── style.css
+            └── script.js
+```
+
+O parâmetro:
+
+```text
+--delete
+```
+
+faz com que objetos existentes no destino que não estejam mais presentes na origem sejam removidos durante a sincronização.
+
+Isso mantém o conteúdo do bucket alinhado com o conteúdo versionado no GitHub.
+
+---
+
+### 15.16 Teste da publicação no S3
+
+Depois de adicionar o comando:
+
+```bash
+aws s3 sync frontend/ s3://cloud-resume-rafael-2026 --delete
+```
+
+foi realizado um novo `git push`.
+
+O GitHub Actions executou:
+
+```text
+Checkout                      ✅
+OIDC                          ✅
+Acesso AWS                    ✅
+Upload para S3                ✅
+```
+
+O frontend foi atualizado corretamente no bucket.
+
+---
+
+### 15.17 Invalidação do CloudFront
+
+Após confirmar o upload para o S3, foi adicionada a etapa de invalidação do CloudFront.
+
+Configuração:
+
+```yaml
+- name: Invalidar cache do CloudFront
+  run: aws cloudfront create-invalidation --distribution-id EPIQFSJKWMN9X --paths "/*"
+```
+
+O objetivo é solicitar ao CloudFront que descarte os objetos armazenados em cache para que a versão atualizada do site possa ser disponibilizada.
+
+O fluxo passou a ser:
+
+```text
+GitHub
+   │
+   ▼
+GitHub Actions
+   │
+   ▼
+S3
+   │
+   │ arquivos atualizados
+   ▼
+CloudFront
+   │
+   │ cache invalidado
+   ▼
+Usuário
+```
+
+---
+
+### 15.18 Teste real do CI/CD
+
+Depois que todas as etapas foram configuradas, foi realizado um teste real no currículo.
+
+Foi feita uma pequena alteração no arquivo:
+
+```text
+frontend/index.html
+```
+
+Depois foi realizado:
+
+```bash
+git add frontend/index.html
+git commit -m "test: valida deploy automatico do frontend"
+git push
+```
+
+O GitHub Actions detectou a alteração e iniciou automaticamente o workflow.
+
+Resultado:
+
+```text
+Frontend CI/CD
+      │
+      ├── Checkout                  ✅
+      ├── Autenticação OIDC         ✅
+      ├── Acesso AWS                ✅
+      ├── Upload para S3            ✅
+      └── Invalidação CloudFront    ✅
+```
+
+Depois da execução, o currículo online foi acessado e a alteração realizada no arquivo apareceu corretamente.
+
+Foi utilizado um recarregamento completo do navegador para confirmar o resultado.
+
+---
+
+### 15.19 Validação ponta a ponta
+
+O teste confirmou o funcionamento de toda a cadeia:
+
+```text
+Alteração no código
+        │
+        ▼
+       Git
+        │
+        ▼
+      GitHub
+        │
+        ▼
+ GitHub Actions
+        │
+        ▼
+      OIDC
+        │
+        ▼
+      AWS IAM
+        │
+        ▼
+       S3
+        │
+        ▼
+   CloudFront
+        │
+        ▼
+Currículo online
+```
+
+A alteração realizada no GitHub foi refletida no currículo publicado sem necessidade de atualização manual no console da AWS.
+
+---
+
+### 15.20 Segurança
+
+Um dos principais objetivos desta etapa foi evitar o armazenamento de credenciais permanentes da AWS no GitHub.
+
+Não foram utilizadas:
+
+```text
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+```
+
+como secrets permanentes para realizar o deploy.
+
+Em vez disso foi utilizado:
+
+```text
+GitHub Actions
+      ↓
+OIDC
+      ↓
+IAM Role
+      ↓
+Credenciais temporárias
+      ↓
+AWS
+```
+
+O GitHub recomenda OIDC justamente para permitir que workflows utilizem credenciais temporárias em provedores de nuvem sem armazenar credenciais de longa duração.
+
+Além disso, a Trust Policy da Role foi restringida ao repositório e ao branch utilizados pelo projeto.
+
+As permissões da Role também foram limitadas aos recursos necessários:
+
+```text
+S3
+└── cloud-resume-rafael-2026
+
+CloudFront
+└── EPIQFSJKWMN9X
+```
+
+---
+
+### 15.21 Arquitetura final
+
+A arquitetura final do CI/CD do frontend ficou:
+
+```text
+                    GitHub
+                       │
+                       │ git push
+                       ▼
+             ┌────────────────────┐
+             │   GitHub Actions    │
+             │   Frontend CI/CD    │
+             └─────────┬──────────┘
+                       │
+                       │ OIDC
+                       ▼
+             ┌────────────────────┐
+             │     AWS IAM        │
+             │ Frontend OIDC Role │
+             └─────────┬──────────┘
+                       │
+             ┌─────────┴──────────┐
+             │                    │
+             ▼                    ▼
+        Amazon S3            CloudFront
+             │                    │
+             │ upload             │ invalidation
+             ▼                    │
+    cloud-resume-                │
+    rafael-2026                  │
+             │                    │
+             └──────────┬─────────┘
+                        ▼
+                 Currículo online
+```
+
+---
+
+### 15.22 Diferença entre os pipelines
+
+O projeto agora possui dois pipelines independentes.
+
+#### Backend
+
+```text
+backend/
+template.yaml
+       │
+       ▼
+backend.yml
+       │
+       ├── Testes
+       ├── SAM Build
+       └── SAM Deploy
+                │
+                ▼
+              AWS
+```
+
+#### Frontend
+
+```text
+frontend/
+       │
+       ▼
+frontend.yml
+       │
+       ├── OIDC
+       ├── S3 Sync
+       └── CloudFront Invalidation
+                │
+                ▼
+        Currículo online
+```
+
+---
+
+### 15.23 Resultado
+
+A implementação do CI/CD do frontend foi concluída.
+
+Agora, quando uma alteração é realizada dentro de:
+
+```text
+frontend/
+```
+
+e enviada para o branch:
+
+```text
+main
+```
+
+o GitHub Actions executa automaticamente o pipeline.
+
+O processo é:
+
+```text
+git push
+   ↓
+GitHub Actions
+   ↓
+Autenticação OIDC
+   ↓
+Assume IAM Role
+   ↓
+Upload para S3
+   ↓
+Invalidação CloudFront
+   ↓
+Currículo atualizado
+```
+
+O processo foi testado na prática e a alteração realizada no código foi refletida corretamente no currículo online.
+
+### Status
+
+**Concluído ✅**
+
+> Observação: o Cloud Resume Challenge recomenda um segundo repositório para o código do website. Neste projeto foi adotada uma abordagem diferente, mantendo frontend e backend no mesmo repositório, mas utilizando workflows independentes e filtros `paths` para separar os pipelines. A implementação de CI/CD do frontend foi validada de ponta a ponta.
 
 ---
 
