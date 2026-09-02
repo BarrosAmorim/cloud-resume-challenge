@@ -53,7 +53,7 @@ cloud-resume-challenge/
 - [x] Banco de dados — DynamoDB
 - [x] API — API Gateway
 - [x] Backend — Python/Lambda
-- [ ] Testes
+- [x] Testes
 - [ ] Infrastructure as Code
 - [x] Controle de versão — Git/GitHub
 - [ ] CI/CD — Backend
@@ -1151,9 +1151,9 @@ O funcionamento foi validado através do domínio público do projeto.
 
 ### Objetivo
 
-Criar uma função AWS Lambda utilizando Python para acessar o DynamoDB e retornar a quantidade de visitantes armazenada na tabela.
+Criar uma função AWS Lambda utilizando Python para acessar o DynamoDB, incrementar a quantidade de visitantes e retornar o novo valor do contador.
 
-Nesta etapa também foi configurada a permissão IAM necessária para que a Lambda pudesse consultar o DynamoDB.
+Nesta etapa também foi configurada a permissão IAM necessária para que a Lambda pudesse acessar e atualizar o DynamoDB.
 
 ### Serviços utilizados
 
@@ -1204,7 +1204,7 @@ Depois selecionei:
 Add permissions → Create inline policy
 ```
 
-Foi criada uma política específica para permitir somente as operações necessárias no DynamoDB.
+Foi criada uma política específica para permitir as operações necessárias no DynamoDB.
 
 Política criada:
 
@@ -1230,7 +1230,7 @@ Configuração utilizada:
 A política permite:
 
 - `dynamodb:GetItem` — consultar o contador.
-- `dynamodb:UpdateItem` — atualizar o contador posteriormente.
+- `dynamodb:UpdateItem` — atualizar e incrementar o contador.
 
 O acesso foi limitado especificamente à tabela `CloudResumeVisitorCount`, seguindo o princípio do menor privilégio.
 
@@ -1238,7 +1238,7 @@ O acesso foi limitado especificamente à tabela `CloudResumeVisitorCount`, segui
 
 #### 3. Configurar o código Python
 
-Na função Lambda, substituí o código inicial da AWS pelo código Python responsável por acessar o DynamoDB.
+Na função Lambda, substituí o código inicial da AWS pelo código Python responsável por acessar e atualizar o DynamoDB.
 
 O código utiliza a biblioteca `boto3` para comunicação com os serviços AWS.
 
@@ -1252,15 +1252,21 @@ table = dynamodb.Table("CloudResumeVisitorCount")
 
 def lambda_handler(event, context):
 
-    response = table.get_item(
+    response = table.update_item(
         Key={
             "id": "visitor-count"
-        }
+        },
+        UpdateExpression="ADD #count :inc",
+        ExpressionAttributeNames={
+            "#count": "count"
+        },
+        ExpressionAttributeValues={
+            ":inc": 1
+        },
+        ReturnValues="UPDATED_NEW"
     )
 
-    item = response.get("Item", {})
-
-    count = item.get("count", 0)
+    count = response["Attributes"]["count"]
 
     return {
         "statusCode": 200,
@@ -1275,10 +1281,32 @@ A função realiza as seguintes operações:
 1. Importa `boto3`.
 2. Cria uma conexão com o DynamoDB.
 3. Seleciona a tabela `CloudResumeVisitorCount`.
-4. Consulta o item cujo `id` é `visitor-count`.
-5. Obtém o valor armazenado em `count`.
-6. Caso o item não seja encontrado, utiliza `0`.
-7. Retorna o contador em uma resposta com `statusCode 200`.
+4. Localiza o item cujo `id` é `visitor-count`.
+5. Incrementa o campo `count` em `1`.
+6. Obtém o novo valor do contador.
+7. Retorna o novo contador em uma resposta com `statusCode 200`.
+
+A expressão:
+
+```text
+ADD #count :inc
+```
+
+juntamente com:
+
+```text
+:inc = 1
+```
+
+é responsável por incrementar o contador em uma unidade a cada execução da Lambda.
+
+O parâmetro:
+
+```text
+ReturnValues="UPDATED_NEW"
+```
+
+faz com que o DynamoDB retorne o novo valor do contador após a atualização.
 
 ---
 
@@ -1306,7 +1334,7 @@ Criei um novo evento com:
 {}
 ```
 
-O evento não precisa enviar informações para a função, pois a própria Lambda sabe qual tabela e qual item do DynamoDB deve consultar.
+O evento não precisa enviar informações para a função, pois a própria Lambda sabe qual tabela e qual item do DynamoDB deve atualizar.
 
 ---
 
@@ -1316,16 +1344,38 @@ Executei a função através do botão **Testar**.
 
 A execução foi concluída com sucesso.
 
-Resultado retornado:
+Resultado retornado na primeira execução após a implementação do incremento:
 
 ```json
 {
   "statusCode": 200,
-  "body": "{\"count\": 0}"
+  "body": "{\"count\": 1}"
 }
 ```
 
-O resultado confirmou que a Lambda conseguiu acessar o DynamoDB e recuperar corretamente o valor inicial do contador.
+O resultado confirmou que a Lambda conseguiu:
+
+1. Executar corretamente;
+2. Acessar o DynamoDB;
+3. Incrementar o contador;
+4. Recuperar o novo valor;
+5. Retornar o resultado com `statusCode 200`.
+
+Posteriormente, o funcionamento também foi validado através do site publicado.
+
+O contador apresentou valores consecutivos, por exemplo:
+
+```text
+Visitantes: 50
+```
+
+Após uma nova atualização:
+
+```text
+Visitantes: 51
+```
+
+Isso confirmou que o contador está sendo incrementado a cada execução da Lambda.
 
 ### Arquitetura da etapa
 
@@ -1341,7 +1391,7 @@ CloudResumeVisitorCount
     │
     └── visitor-count
             │
-            └── count = 0
+            └── count + 1
 ```
 
 ### Fluxo da execução
@@ -1352,44 +1402,231 @@ Evento de teste {}
        ▼
 Lambda cloud-resume-counter
        │
-       │ GetItem
+       │ UpdateItem
+       │ count + 1
        ▼
 DynamoDB
        │
-       │ count = 0
+       │ retorna novo count
        ▼
 Lambda
        │
        ▼
 HTTP 200
        │
-       └── {"count": 0}
+       └── {"count": novo valor}
+```
+
+### Integração com o projeto
+
+A Lambda não é executada apenas pelo teste manual.
+
+No projeto completo, o fluxo acontece da seguinte maneira:
+
+```text
+Usuário acessa o currículo
+        │
+        ▼
+JavaScript
+        │
+        │ GET /count
+        ▼
+API Gateway
+        │
+        ▼
+AWS Lambda
+        │
+        │ UpdateItem
+        ▼
+DynamoDB
+        │
+        │ count + 1
+        ▼
+Lambda retorna o novo valor
+        │
+        ▼
+API Gateway
+        │
+        ▼
+JavaScript
+        │
+        ▼
+Contador exibido na página
 ```
 
 ### Resultado
 
 A função Lambda foi criada e configurada com Python 3.14.
 
-A Lambda conseguiu acessar o DynamoDB utilizando `boto3` e as permissões IAM configuradas especificamente para a tabela do projeto.
+A Lambda utiliza `boto3` para acessar o DynamoDB e atualizar o contador de visitantes.
 
-O teste foi executado com sucesso e retornou:
+A função agora incrementa o valor armazenado na tabela em `1` a cada execução e retorna o novo valor através da API.
 
-```json
-{
-  "statusCode": 200,
-  "body": "{\"count\": 0}"
-}
-```
-
-### Observação
-
-Nesta primeira implementação, a Lambda apenas consulta o contador.
-
-A atualização do valor será utilizada posteriormente para implementar o contador de visitantes completo.
+A implementação foi validada através do teste direto da Lambda e também pelo acesso ao currículo publicado.
 
 ### Status
 
 **Concluído ✅**
+
+---
+
+## Etapa 11 — Testes
+
+### Objetivo
+
+Criar testes automatizados para o código Python utilizado na AWS Lambda.
+
+Os testes têm como objetivo verificar se a função está retornando os resultados esperados e se está enviando corretamente a operação de incremento para o DynamoDB.
+
+---
+
+### Ferramentas utilizadas
+
+- Python
+- Pytest
+- unittest.mock
+- MagicMock
+
+---
+
+### Estrutura
+
+Foi criada uma pasta para o código do backend:
+
+```text
+cloud-resume-challenge/
+├── frontend/
+│   ├── index.html
+│   ├── style.css
+│   └── script.js
+│
+├── backend/
+│   ├── lambda_function.py
+│   └── test_lambda_function.py
+│
+└── README.md
+```
+
+O arquivo `lambda_function.py` contém o código utilizado pela AWS Lambda.
+
+O arquivo `test_lambda_function.py` contém os testes automatizados.
+
+---
+
+### Instalação do Pytest
+
+O Pytest foi instalado no ambiente local utilizando:
+
+```powershell
+pip install pytest
+```
+
+A versão instalada foi:
+
+```text
+pytest 9.1.1
+```
+
+Também foi instalado o `boto3`, necessário para executar localmente o código da Lambda:
+
+```powershell
+pip install boto3
+```
+
+---
+
+### Testes automatizados
+
+Foram criados três testes utilizando `pytest`.
+
+#### 1. Teste do retorno da Lambda
+
+Verifica se a Lambda:
+
+- executa corretamente;
+- retorna `statusCode` igual a `200`;
+- retorna o valor esperado do contador.
+
+#### 2. Teste do incremento
+
+Verifica se a Lambda envia corretamente a operação de incremento para o DynamoDB:
+
+```text
+ADD #count :inc
+```
+
+com:
+
+```text
+:inc = 1
+```
+
+Também verifica a chave utilizada:
+
+```text
+id = visitor-count
+```
+
+#### 3. Teste com outro valor
+
+Foi utilizado um segundo cenário com o contador igual a `100`.
+
+O objetivo é garantir que o teste não dependa exclusivamente de um único valor.
+
+---
+
+### Simulação do DynamoDB
+
+Os testes não utilizam o DynamoDB real.
+
+Foi utilizado `MagicMock` para simular a resposta do DynamoDB:
+
+```text
+Teste
+  │
+  ▼
+Lambda Python
+  │
+  ▼
+DynamoDB simulado
+  │
+  ▼
+Resultado
+```
+
+Isso permite executar os testes localmente sem alterar o contador real utilizado pelo site.
+
+---
+
+### Execução dos testes
+
+Os testes foram executados no ambiente local com:
+
+```powershell
+pytest test_lambda_function.py
+```
+
+Resultado:
+
+```text
+3 passed in 0.76s
+```
+
+---
+
+### Resultado
+
+Os três testes foram executados com sucesso.
+
+```text
+3 passed
+```
+
+Com isso, foi possível validar automaticamente o comportamento principal da função Python utilizada pelo contador de visitantes.
+
+### Status
+
+✅ **Concluído**
 
 ---
 
