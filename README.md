@@ -12,12 +12,18 @@ O projeto será desenvolvido seguindo as etapas propostas pelo desafio.
 
 - HTML
 - CSS
+- JavaScript
 - Git
 - GitHub
 - AWS
-- Terraform
+- Amazon S3
+- Amazon CloudFront
+- Amazon DynamoDB
+- Amazon API Gateway
+- AWS Lambda
 - Python
-- Docker
+- Boto3
+- Terraform
 - GitHub Actions
 
 > As tecnologias serão adicionadas ao projeto conforme cada etapa for implementada.
@@ -26,9 +32,13 @@ O projeto será desenvolvido seguindo as etapas propostas pelo desafio.
 
 ```text
 cloud-resume-challenge/
-└── frontend/
-    ├── index.html
-    └── style.css
+
+├── frontend/
+│   ├── index.html
+│   ├── style.css
+│   └── script.js
+│
+└── README.md
 ```
 
 ## Etapas do projeto
@@ -39,16 +49,16 @@ cloud-resume-challenge/
 - [x] Static Website — Amazon S3
 - [x] HTTPS — CloudFront
 - [x] DNS
-- [x] JavaScript
+- [ ] JavaScript
 - [x] Banco de dados — DynamoDB
-- [x] API — API Gateway
+- [ ] API — API Gateway
 - [x] Backend — Python/Lambda
-- [x] Testes
+- [ ] Testes
 - [ ] Infrastructure as Code
 - [x] Controle de versão — Git/GitHub
 - [ ] CI/CD — Backend
 - [ ] CI/CD — Frontend
-- [ ] Documentação do projeto
+- [ ] Blog post
 
 ---
 
@@ -83,16 +93,22 @@ Criar o currículo utilizando HTML.
 ### Passo a passo
 
 1. Criei a estrutura HTML do currículo.
+
 2. Defini o idioma da página como `pt-BR`.
+
 3. Adicionei a estrutura básica do documento HTML.
+
 4. Criei as seções do currículo utilizando elementos semânticos.
+
 5. Adicionei informações profissionais, experiência, competências, projetos, certificações e formação.
+
 6. Criei o arquivo `index.html` dentro da pasta `frontend`.
 
 ### Estrutura utilizada
 
 ```text
 frontend/
+
 └── index.html
 ```
 
@@ -115,17 +131,24 @@ Aplicar estilos ao currículo utilizando CSS.
 ### Passo a passo
 
 1. Criei o arquivo `style.css`.
+
 2. Adicionei o arquivo dentro da pasta `frontend`.
+
 3. Vinculei o CSS ao arquivo `index.html`.
+
 4. Configurei fonte, espaçamento, margens e tamanhos.
+
 5. Criei estilos para títulos, seções, listas e informações do currículo.
+
 6. Adicionei responsividade para diferentes tamanhos de tela.
+
 7. Realizei ajustes visuais para manter o currículo simples e profissional.
 
 ### Estrutura utilizada
 
 ```text
 frontend/
+
 ├── index.html
 └── style.css
 ```
@@ -149,32 +172,31 @@ Utilizar o Amazon S3 para armazenar os arquivos estáticos do currículo como pa
 ### Passo a passo
 
 1. Acessei o console da AWS.
+
 2. Acessei o serviço Amazon S3.
+
 3. Criei um bucket para o projeto.
-4. Selecionei a região `South America (São Paulo) — sa-east-1`.
+
+4. Utilizei a região `us-east-1`.
+
 5. Mantive as ACLs desabilitadas.
-6. Mantive o bloqueio de acesso público ativado.
+
+6. Inicialmente mantive o bloqueio de acesso público ativado.
+
 7. Adicionei uma tag para identificação do projeto.
+
 8. Realizei o upload do arquivo `index.html`.
+
 9. Realizei o upload do arquivo `style.css`.
 
 ### Estrutura do bucket
 
 ```text
 bucket/
+
 ├── index.html
 └── style.css
 ```
-
-### Resultado
-
-O bucket foi criado com sucesso e os arquivos do frontend foram enviados para o Amazon S3.
-
-### Status
-
-Em andamento.
-
-A próxima etapa será configurar o S3 para hospedagem do site estático e realizar os testes de acesso.
 
 ### Configuração do Static Website Hosting
 
@@ -187,9 +209,29 @@ Configurações utilizadas:
 - Documento de índice: `index.html`
 - Documento de erro: não configurado
 
+### Problema encontrado
+
+Inicialmente, o acesso ao Static Website do S3 retornava erro de acesso negado.
+
+O bucket estava configurado com o bloqueio de acesso público ativado.
+
+### Solução
+
+Como a implementação utiliza o endpoint de **Static Website Hosting do S3**, foi necessário desativar o bloqueio de acesso público e posteriormente configurar uma política de bucket permitindo leitura dos objetos.
+
+A política utilizada permite somente:
+
+```text
+s3:GetObject
+```
+
+para os objetos armazenados no bucket.
+
+Não foram concedidas permissões públicas para upload, alteração ou exclusão dos arquivos.
+
 ### Resultado
 
-O Amazon S3 foi configurado para utilizar o `index.html` como página inicial do site.
+O Amazon S3 foi configurado para utilizar o `index.html` como página inicial do site e os arquivos estáticos passaram a ser disponibilizados corretamente.
 
 ### Status
 
@@ -197,13 +239,13 @@ O Amazon S3 foi configurado para utilizar o `index.html` como página inicial do
 
 ---
 
-### Etapa 5 — HTTPS com Amazon CloudFront
+## Etapa 5 — HTTPS com Amazon CloudFront
 
-#### Objetivo
+### Objetivo
 
 Disponibilizar o currículo através de HTTPS utilizando o Amazon CloudFront, conforme solicitado pelo Cloud Resume Challenge.
 
-#### Configuração
+### Configuração
 
 Foi criada uma distribuição do Amazon CloudFront para entregar o conteúdo do site hospedado no Amazon S3.
 
@@ -213,49 +255,65 @@ Configurações utilizadas:
 - Plano: `Free ($0/month)`
 - Origem: S3 Static Website
 - S3 Website Endpoint:
-  `cloud-resume-rafael-2026.s3-website-us-east-1.amazonaws.com`
+
+```text
+cloud-resume-rafael-2026.s3-website-us-east-1.amazonaws.com
+```
+
 - Origin Shield: desativado
 - Cache: configurações recomendadas para conteúdo S3
-- WAF: configurações de segurança padrão
+- WAF: configurações padrão
 - HTTPS: habilitado pelo CloudFront
 
-#### Problema encontrado
+### Problema encontrado
 
 Após criar a distribuição, o acesso pelo CloudFront retornava:
 
 ```text
 403 Forbidden
+
 Code: AccessDenied
+
 Message: Access Denied
 ```
 
 A mesma situação também ocorria inicialmente ao acessar o Static Website do S3.
 
-#### Diagnóstico
+### Diagnóstico
 
 O bucket estava com a opção **Bloquear todo o acesso público** ativada.
 
 Como a implementação desta etapa utiliza o endpoint de **Static Website Hosting do S3**, foi necessário permitir acesso público de leitura aos objetos do bucket.
 
-#### Solução
+### Solução
 
-Foi desativado o bloqueio de acesso público do bucket e criada uma Bucket Policy permitindo somente a ação `s3:GetObject` para os objetos armazenados no bucket.
+Foi desativado o bloqueio de acesso público do bucket e criada uma Bucket Policy permitindo somente a ação:
 
-A política utilizada permite leitura pública dos arquivos necessários para o funcionamento do currículo, sem conceder permissões de upload, alteração ou exclusão.
+```text
+s3:GetObject
+```
 
-#### Testes realizados
+para os objetos armazenados no bucket.
+
+A política permite leitura pública dos arquivos necessários para o funcionamento do currículo, sem conceder permissões de upload, alteração ou exclusão.
+
+### Testes realizados
 
 1. Acesso ao endpoint do Static Website do S3:
    - Resultado: currículo carregado com sucesso.
 
 2. Acesso através do CloudFront:
-   - URL: `https://d189fig617ch0u.cloudfront.net`
-   - Resultado: currículo carregado com sucesso.
+
+```text
+https://d189fig617ch0u.cloudfront.net
+```
+
+- Resultado: currículo carregado com sucesso.
 
 3. HTTPS:
    - Resultado: conexão HTTPS funcionando corretamente através do CloudFront.
 
-#### Arquitetura
+### Arquitetura
 
 ```text
 Usuário
@@ -275,7 +333,7 @@ index.html + style.css
 
 > Observação: o endpoint de Static Website do S3 utiliza HTTP. O HTTPS para o usuário final é fornecido pelo CloudFront.
 
-#### Status
+### Status
 
 **Concluído ✅**
 
@@ -298,7 +356,7 @@ Configurar um domínio personalizado para o currículo e disponibilizá-lo atrav
 
 1. Utilizei o domínio `barrosamorimd.work` para o projeto.
 
-2. Solicitei um certificado SSL/TLS para o domínio através do AWS Certificate Manager (ACM), utilizando a região `us-east-1`, necessária para utilização do certificado com o CloudFront.
+2. Solicitei um certificado SSL/TLS para o domínio através do AWS Certificate Manager, utilizando a região `us-east-1`, necessária para utilização do certificado com o CloudFront.
 
 3. O ACM forneceu um registro CNAME para validação do domínio.
 
@@ -312,7 +370,11 @@ Configurar um domínio personalizado para o currículo e disponibilizá-lo atrav
 
 8. Associei o certificado SSL/TLS emitido pelo ACM à distribuição CloudFront.
 
-9. Configurei a política de segurança TLS da distribuição como `TLSv1.2_2021`.
+9. Configurei a política de segurança TLS da distribuição como:
+
+```text
+TLSv1.2_2021
+```
 
 10. Criei no Cloudflare o registro CNAME principal do domínio, apontando:
 
@@ -324,7 +386,11 @@ d189fig617ch0u.cloudfront.net
 
 11. Mantive o registro como **DNS Only**, permitindo que o DNS do Cloudflare apenas direcionasse o domínio para o CloudFront.
 
-12. Durante a configuração, o domínio apresentou inicialmente o erro `DNS_PROBE_FINISHED_NXDOMAIN`.
+12. Durante a configuração, o domínio apresentou inicialmente o erro:
+
+```text
+DNS_PROBE_FINISHED_NXDOMAIN
+```
 
 13. Utilizei o comando `nslookup` para investigar a resolução DNS:
 
@@ -332,7 +398,7 @@ d189fig617ch0u.cloudfront.net
 nslookup barrosamorimd.work 1.1.1.1
 ```
 
-14. O teste confirmou que o domínio estava sendo resolvido corretamente para os endereços da infraestrutura do CloudFront.
+14. O teste confirmou que o domínio estava sendo resolvido corretamente para a infraestrutura do CloudFront.
 
 15. Realizei o teste final acessando:
 
@@ -387,13 +453,17 @@ O currículo passou a estar disponível através de um domínio personalizado e 
 
 **URL do projeto:**
 
-`https://barrosamorimd.work`
+```text
+https://barrosamorimd.work
+```
 
 A configuração demonstra a utilização integrada de **DNS, certificado SSL/TLS, CloudFront e S3**, incluindo diagnóstico e resolução de problemas de DNS.
 
 ### Status
 
 **Concluído ✅**
+
+---
 
 ## Etapa 7 — JavaScript
 
@@ -429,6 +499,7 @@ Adicionar um contador de visitantes ao currículo utilizando JavaScript, prepara
 
 ```text
 frontend/
+
 ├── index.html
 ├── style.css
 └── script.js
@@ -438,7 +509,9 @@ frontend/
 
 Foi implementada a primeira versão do contador de visitantes utilizando JavaScript.
 
-O contador atualmente utiliza um valor fixo para validar a integração entre HTML e JavaScript. Nas próximas etapas, esse valor será substituído por uma contagem armazenada no DynamoDB e acessada através de uma API.
+O contador atualmente utiliza um valor fixo para validar a integração entre HTML e JavaScript.
+
+Nas próximas etapas, esse valor será substituído por uma contagem armazenada no DynamoDB e acessada através de uma API.
 
 ### Status
 
@@ -464,13 +537,13 @@ Criar um banco de dados para armazenar a quantidade de visitantes do currículo,
 
 3. Criei a tabela com o nome:
 
-```text id="e6s0s6"
+```text
 CloudResumeVisitorCount
 ```
 
 4. Configurei a chave de partição da tabela como:
 
-```text id="4bgjwl"
+```text
 id
 ```
 
@@ -480,13 +553,13 @@ id
 
 7. Mantive a classe da tabela como **DynamoDB Standard**.
 
-8. Configurei o modo de capacidade como **Sob demanda (On-Demand)**, evitando a necessidade de definir previamente unidades de leitura e gravação.
+8. Configurei o modo de capacidade como **Sob demanda (On-Demand)**.
 
 9. Mantive as configurações padrão de criptografia utilizando uma chave de propriedade da AWS.
 
 10. Adicionei uma tag para identificar o recurso:
 
-```text id="a0gq67"
+```text
 Project = CloudResumeChallenge
 ```
 
@@ -498,19 +571,19 @@ Project = CloudResumeChallenge
 
 14. Configurei a chave de partição do item como:
 
-```text id="s7hmbw"
+```text
 id = "visitor-count"
 ```
 
 15. Adicionei o atributo responsável pela quantidade de visitantes:
 
-```text id="1k8i2q"
+```text
 count = 0
 ```
 
 ### Estrutura da tabela
 
-```text id="ax1n9t"
+```text
 CloudResumeVisitorCount
 
 ┌────────────────┬───────┐
@@ -524,11 +597,11 @@ CloudResumeVisitorCount
 
 Foi criada uma tabela DynamoDB em modo de capacidade sob demanda para armazenar a quantidade de visitantes do currículo.
 
-O item inicial foi criado com a contagem `0`, preparando o banco de dados para que, nas próximas etapas, a aplicação possa consultar e atualizar esse valor através de uma API.
+O item inicial foi criado com a contagem `0`, preparando o banco de dados para que a aplicação possa consultar e atualizar esse valor através de uma API.
 
 ### Status
 
-Concluído ✅
+**Concluído ✅**
 
 ---
 
@@ -538,9 +611,11 @@ Concluído ✅
 
 Criar uma API para permitir que o currículo se comunique com o banco de dados DynamoDB de forma segura e organizada.
 
-De acordo com o desafio, o código JavaScript do currículo não deve acessar diretamente o DynamoDB. A comunicação deverá ser realizada através de uma API, utilizando o Amazon API Gateway e uma função AWS Lambda.
+De acordo com o desafio, o código JavaScript do currículo não deve acessar diretamente o DynamoDB.
 
-A arquitetura planejada para esta etapa é:
+A comunicação deverá ser realizada através de uma API utilizando o Amazon API Gateway e uma função AWS Lambda.
+
+### Arquitetura planejada
 
 ```text
 Navegador
@@ -580,8 +655,6 @@ CloudResumeVisitorCount
 API HTTP
 ```
 
-A opção foi escolhida por ser adequada para uma API simples que será utilizada pelo currículo para realizar requisições HTTP.
-
 4. Defini o nome da API como:
 
 ```text
@@ -594,7 +667,7 @@ CloudResumeAPI
 IPv4
 ```
 
-6. Inicialmente, a API foi criada sem uma integração, pois a função Lambda ainda será criada e configurada posteriormente.
+6. Inicialmente, a API foi criada sem uma integração, pois a função Lambda ainda seria criada e configurada posteriormente.
 
 7. Após a criação da API, acessei a área de **Rotas**.
 
@@ -618,7 +691,7 @@ A rota criada ficou:
 GET /count
 ```
 
-11. A rota será utilizada posteriormente pelo JavaScript do currículo para solicitar a quantidade atual de visitantes.
+11. A rota será utilizada pelo JavaScript do currículo para solicitar a quantidade atual de visitantes.
 
 12. A API utiliza o estágio padrão:
 
@@ -628,12 +701,11 @@ $default
 
 13. Mantive a opção de **implantação automática** habilitada no estágio `$default`.
 
-Com isso, as alterações realizadas na API podem ser disponibilizadas automaticamente nesse estágio.
-
 ### Configuração atual
 
 ```text
 API
+
 └── CloudResumeAPI
 
 Tipo
@@ -654,7 +726,7 @@ Rotas
 
 ```text
 ┌─────────────────────────┐
-│      Site / Currículo   │
+│     Site / Currículo    │
 │                         │
 │       JavaScript        │
 └────────────┬────────────┘
@@ -665,14 +737,14 @@ Rotas
 │      API Gateway        │
 │                         │
 │    CloudResumeAPI       │
-│       GET /count        │
+│      GET /count         │
 └────────────┬────────────┘
              │
              ▼
 ┌─────────────────────────┐
 │        Lambda           │
 │                         │
-│  Processa a requisição  │
+│ Processa a requisição   │
 └────────────┬────────────┘
              │
              │ leitura / atualização
@@ -689,7 +761,7 @@ Rotas
 
 ### Por que utilizar uma API?
 
-O JavaScript do navegador não deve acessar diretamente o DynamoDB.
+O JavaScript executado no navegador não deve acessar diretamente o DynamoDB.
 
 A API cria uma camada intermediária entre o usuário e o banco de dados.
 
@@ -711,16 +783,17 @@ Essa arquitetura também permite controlar melhor as permissões de acesso ao ba
 
 ### Estado atual
 
-A API e a rota já foram criadas, porém a integração com a Lambda ainda não foi configurada.
+A API e a rota `GET /count` já foram criadas.
+
+A integração entre o API Gateway e a Lambda ainda precisa ser configurada.
 
 ### Próximos passos
 
-- Criar a função AWS Lambda.
-- Configurar a integração entre API Gateway e Lambda.
-- Permitir que a Lambda acesse o DynamoDB.
-- Testar a rota `GET /count`.
-- Retornar a quantidade de visitantes para o navegador.
-- Posteriormente substituir o contador fixo do `script.js` pelo valor retornado pela API.
+- Integrar `GET /count` com a função Lambda.
+- Testar a comunicação entre API Gateway e Lambda.
+- Retornar a quantidade de visitantes através da API.
+- Atualizar o JavaScript para consumir a API.
+- Implementar a atualização do contador no DynamoDB.
 
 ### Status
 
@@ -753,12 +826,13 @@ Selecionei **Criar função** e configurei:
 
 - Nome da função: `cloud-resume-counter`
 - Runtime: `Python 3.14`
-- Arquitetura: padrão da AWS
 - Região: `us-east-1`
 
 A função foi criada com uma role de execução própria:
 
-`cloud-resume-counter-role-lo5xeumx`
+```text
+cloud-resume-counter-role-lo5xeumx
+```
 
 A AWS também adicionou automaticamente a permissão básica necessária para que a Lambda pudesse enviar logs para o CloudWatch.
 
@@ -766,21 +840,31 @@ A AWS também adicionou automaticamente a permissão básica necessária para qu
 
 #### 2. Configurar a permissão IAM para o DynamoDB
 
-A função Lambda precisa acessar a tabela `CloudResumeVisitorCount`.
+A função Lambda precisa acessar a tabela:
+
+```text
+CloudResumeVisitorCount
+```
 
 Acessei:
 
-**IAM → Roles → cloud-resume-counter-role-lo5xeumx**
+```text
+IAM → Roles → cloud-resume-counter-role-lo5xeumx
+```
 
 Depois selecionei:
 
-**Add permissions → Create inline policy**
+```text
+Add permissions → Create inline policy
+```
 
 Foi criada uma política específica para permitir somente as operações necessárias no DynamoDB.
 
 Política criada:
 
-`CloudResumeDynamoDBAccess`
+```text
+CloudResumeDynamoDBAccess
+```
 
 Configuração utilizada:
 
@@ -791,7 +875,7 @@ Configuração utilizada:
     {
       "Effect": "Allow",
       "Action": ["dynamodb:GetItem", "dynamodb:UpdateItem"],
-      "Resource": "arn:aws:dynamodb:us-east-1:696537703431:table/CloudResumeVisitorCount"
+      "Resource": "arn:aws:dynamodb:us-east-1:<ACCOUNT_ID>:table/CloudResumeVisitorCount"
     }
   ]
 }
@@ -848,7 +932,7 @@ A função realiza as seguintes operações:
 4. Consulta o item cujo `id` é `visitor-count`.
 5. Obtém o valor armazenado em `count`.
 6. Caso o item não seja encontrado, utiliza `0`.
-7. Retorna o contador em uma resposta HTTP com `statusCode 200`.
+7. Retorna o contador em uma resposta com `statusCode 200`.
 
 ---
 
@@ -896,8 +980,6 @@ Resultado retornado:
 ```
 
 O resultado confirmou que a Lambda conseguiu acessar o DynamoDB e recuperar corretamente o valor inicial do contador.
-
----
 
 ### Arquitetura da etapa
 
@@ -961,11 +1043,11 @@ A atualização do valor será utilizada posteriormente para implementar o conta
 
 ### Status
 
-Concluído ✅
+**Concluído ✅**
 
 ---
 
-## Objetivo profissional
+# Objetivo profissional
 
 Utilizar o projeto como laboratório prático para desenvolver e demonstrar conhecimentos em **Cloud Computing, AWS, infraestrutura, automação, DevOps e CI/CD**.
 
