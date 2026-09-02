@@ -34,3 +34,5 @@ jobs:
 
       - name: Publicar frontend no S3
         run: aws s3 sync frontend/ s3://cloud-resume-rafael-2026 --delete
+      - name: Invalidar cache do CloudFront
+        run: aws cloudfront create-invalidation --distribution-id EPIQFSJKWMN9X --paths "/*"
