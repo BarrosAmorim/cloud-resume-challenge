@@ -17,13 +17,15 @@ on:
       - "template.yaml"
       - ".github/workflows/backend.yml"
 
-permissions:
-  id-token: write
-  contents: read
-
 jobs:
+  # ==========================================
+  # JOB 1 - TESTES
+  # ==========================================
   test:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
 
     env:
       AWS_DEFAULT_REGION: us-east-1
@@ -46,16 +48,37 @@ jobs:
         working-directory: backend
         run: pytest
 
-      - name: Debug OIDC
-        uses: actions/github-script@v7
+  # ==========================================
+  # JOB 2 - BUILD E DEPLOY
+  # ==========================================
+  deploy:
+    needs: test
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      AWS_DEFAULT_REGION: us-east-1
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v6
+
+      - name: Configurar Python
+        uses: actions/setup-python@v6
         with:
-          script: |
-            const token = await core.getIDToken('sts.amazonaws.com');
-            const payload = JSON.parse(
-              Buffer.from(token.split('.')[1], 'base64url').toString()
-            );
-            console.log('OIDC sub:', payload.sub);
-            console.log('OIDC aud:', payload.aud);
+          python-version: "3.14"
+
+      - name: Configurar AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+
+      - name: SAM Build
+        run: sam build
 
       - name: Configurar credenciais AWS via OIDC
         uses: aws-actions/configure-aws-credentials@v6
@@ -65,3 +88,6 @@ jobs:
 
       - name: Testar acesso AWS
         run: aws sts get-caller-identity
+
+      - name: SAM Deploy
+        run: sam deploy --no-confirm-changeset --no-fail-on-empty-changeset
