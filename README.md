@@ -49,7 +49,7 @@ cloud-resume-challenge/
 - [x] Static Website — Amazon S3
 - [x] HTTPS — CloudFront
 - [x] DNS
-- [ ] JavaScript
+- [x] JavaScript
 - [x] Banco de dados — DynamoDB
 - [x] API — API Gateway
 - [x] Backend — Python/Lambda
@@ -465,57 +465,169 @@ A configuração demonstra a utilização integrada de **DNS, certificado SSL/TL
 
 ---
 
-## Etapa 7 — JavaScript
+# Etapa 7 — JavaScript
 
-### Objetivo
+## Objetivo
 
-Adicionar um contador de visitantes ao currículo utilizando JavaScript, preparando a aplicação para posteriormente buscar e atualizar esse valor através de uma API.
+Adicionar JavaScript ao currículo para criar um contador de visitantes.
 
-### Passo a passo
+A implementação utiliza uma API criada no Amazon API Gateway para receber a requisição do frontend. A API aciona uma função AWS Lambda, que consulta e atualiza o contador armazenado no Amazon DynamoDB.
 
-1. Adicionei uma área no `footer` do currículo para exibir a quantidade de visitantes.
+O objetivo é que cada acesso ao currículo incremente o número de visitantes.
 
-2. Criei o elemento HTML `span` com o identificador `visitor-count` para permitir que o JavaScript alterasse o valor dinamicamente.
+## 7.1 Implementação inicial
 
-3. Inicialmente, defini o contador com o valor `0` no HTML.
+Inicialmente, foi utilizado um valor fixo no JavaScript para validar a integração entre o HTML e o JavaScript:
 
-4. Criei o arquivo `script.js` dentro da pasta `frontend`.
+```javascript
+const contador = document.getElementById("visitor-count");
 
-5. Utilizei JavaScript para localizar o elemento `visitor-count` através do método `getElementById()`.
-
-6. Configurei o JavaScript para alterar o valor exibido no contador para `1`.
-
-7. Vinculei o arquivo `script.js` ao `index.html` através da tag:
-
-```html
-<script src="script.js"></script>
+contador.textContent = "1";
 ```
 
-8. Salvei os arquivos e realizei um teste localmente através do navegador.
+Essa implementação foi utilizada somente durante os testes iniciais.
 
-9. O teste confirmou que o JavaScript foi carregado corretamente e conseguiu alterar o valor exibido no HTML.
+## 7.2 Integração com a API
 
-### Estrutura utilizada
+Após a criação do backend, o JavaScript foi atualizado para realizar uma requisição HTTP para o endpoint `/count` da API Gateway.
+
+```javascript
+const contador = document.getElementById("visitor-count");
+
+fetch("https://cikqe4oo7h.execute-api.us-east-1.amazonaws.com/count")
+  .then((response) => response.json())
+  .then((data) => {
+    contador.textContent = data.count;
+  })
+  .catch((error) => {
+    console.error("Erro ao buscar contador:", error);
+    contador.textContent = "0";
+  });
+```
+
+O JavaScript utiliza `fetch()` para consultar a API e recebe como resposta o número atual de visitantes.
+
+## 7.3 Configuração do CORS
+
+Como o frontend e a API estão em origens diferentes, foi necessário configurar o CORS no Amazon API Gateway.
+
+Foi permitido o acesso da origem:
+
+```text
+https://barrosamorimd.work
+```
+
+Método permitido:
+
+```text
+GET
+```
+
+Essa configuração permite que o JavaScript executado no currículo faça requisições para a API Gateway.
+
+## 7.4 Publicação do frontend
+
+Após a alteração do JavaScript, os arquivos do frontend foram atualizados no bucket Amazon S3:
 
 ```text
 frontend/
-
 ├── index.html
 ├── style.css
 └── script.js
 ```
 
-### Resultado
+Os arquivos foram enviados para o bucket utilizado pelo currículo.
 
-Foi implementada a primeira versão do contador de visitantes utilizando JavaScript.
+Em seguida, foi realizada uma invalidação do cache do Amazon CloudFront utilizando:
 
-O contador atualmente utiliza um valor fixo para validar a integração entre HTML e JavaScript.
+```text
+/*
+```
 
-Nas próximas etapas, esse valor será substituído por uma contagem armazenada no DynamoDB e acessada através de uma API.
+Isso garantiu que o CloudFront disponibilizasse a versão atualizada do frontend.
 
-### Status
+## 7.5 Arquitetura
 
-Em andamento.
+```text
+Usuário
+   │
+   │ HTTPS
+   ▼
+barrosamorimd.work
+   │
+   │ JavaScript / fetch()
+   ▼
+Amazon API Gateway
+   │
+   │ GET /count
+   ▼
+AWS Lambda
+   │
+   │ UpdateItem
+   ▼
+Amazon DynamoDB
+   │
+   │ contador
+   ▼
+Novo número de visitantes
+```
+
+## 7.6 Fluxo completo
+
+Quando um usuário acessa o currículo:
+
+1. O navegador carrega o `index.html`.
+2. O `script.js` é executado.
+3. O JavaScript realiza uma requisição `GET` para a API Gateway.
+4. O API Gateway invoca a função Lambda.
+5. A Lambda atualiza o contador no DynamoDB.
+6. O novo valor é retornado pela API.
+7. O JavaScript atualiza o elemento `visitor-count` no HTML.
+8. O número atualizado é exibido no currículo.
+
+## 7.7 Validação
+
+A implementação foi testada através do domínio público:
+
+```text
+https://barrosamorimd.work
+```
+
+O contador inicialmente apresentou:
+
+```text
+Visitantes: 50
+```
+
+Após atualizar a página, o contador foi incrementado para:
+
+```text
+Visitantes: 51
+```
+
+Esse comportamento confirmou que o contador está sendo atualizado dinamicamente e que a integração entre frontend, API Gateway, Lambda e DynamoDB está funcionando em produção.
+
+## Resultado
+
+O currículo agora possui um contador de visitantes funcional.
+
+O JavaScript deixou de utilizar um valor fixo e passou a consumir dados reais da infraestrutura AWS.
+
+```text
+Frontend
+   ↓
+JavaScript
+   ↓
+API Gateway
+   ↓
+Lambda Python
+   ↓
+DynamoDB
+```
+
+## Status
+
+**Concluído ✅**
 
 ---
 
