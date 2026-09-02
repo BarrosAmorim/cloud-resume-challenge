@@ -56,7 +56,7 @@ cloud-resume-challenge/
 - [x] Testes
 - [x] Infrastructure as Code
 - [x] Controle de versão — Git/GitHub
-- [ ] CI/CD — Backend
+- [x] CI/CD — Backend
 - [ ] CI/CD — Frontend
 - [ ] Blog post
 
@@ -2479,6 +2479,1062 @@ Isso confirmou que a infraestrutura definida como código está funcionando corr
 ## Status
 
 **Infrastructure as Code — Concluído ✅**
+
+---
+
+## 14. CI/CD (Back-end)
+
+### Objetivo
+
+Automatizar os testes e a implantação do back-end do Cloud Resume Challenge utilizando **GitHub Actions**, **AWS SAM**, **AWS IAM** e **OIDC (OpenID Connect)**.
+
+O objetivo desta etapa é evitar que alterações no código Python ou na infraestrutura precisem ser implantadas manualmente.
+
+O fluxo desejado pelo desafio é:
+
+```text
+Alteração no código
+        │
+        ▼
+     Git Push
+        │
+        ▼
+ GitHub Actions
+        │
+        ▼
+      pytest
+        │
+        │ Testes aprovados
+        ▼
+    sam build
+        │
+        ▼
+ Autenticação OIDC
+        │
+        ▼
+      AWS IAM
+        │
+        ▼
+    sam deploy
+        │
+        ▼
+  CloudFormation
+        │
+        ├── Lambda
+        ├── API Gateway
+        └── DynamoDB
+```
+
+A documentação oficial do Cloud Resume Challenge determina que, nesta etapa, o GitHub Actions execute os testes Python quando houver alterações no código Python ou no template SAM e, caso os testes sejam aprovados, faça o package/deploy da aplicação SAM para a AWS.
+
+---
+
+### 14.1 Por que utilizar CI/CD?
+
+Antes desta etapa, o processo de alteração do back-end era realizado manualmente.
+
+Por exemplo:
+
+```text
+Alterar código Python
+        ↓
+Executar pytest manualmente
+        ↓
+Executar sam build
+        ↓
+Executar sam deploy
+```
+
+Esse processo funciona, mas exige que o desenvolvedor execute manualmente todas as etapas.
+
+Com CI/CD, o processo passa a ser automático:
+
+```text
+Alterar código
+      ↓
+git push
+      ↓
+GitHub Actions
+      ↓
+Testes
+      ↓
+Build
+      ↓
+Deploy
+```
+
+Dessa forma, o próprio GitHub passa a executar o processo de validação e implantação.
+
+O AWS SAM também possui suporte oficial para utilização com GitHub Actions em pipelines de CI/CD.
+
+---
+
+### 14.2 Repositório utilizado
+
+O código do projeto foi versionado no GitHub:
+
+```text
+cloud-resume-challenge
+```
+
+Estrutura principal utilizada:
+
+```text
+cloud-resume-challenge/
+│
+├── backend/
+│   ├── lambda_function.py
+│   └── test_lambda_function.py
+│
+├── frontend/
+│   ├── index.html
+│   ├── script.js
+│   └── style.css
+│
+├── .github/
+│   └── workflows/
+│       └── backend.yml
+│
+├── template.yaml
+├── samconfig.toml
+├── .gitignore
+└── README.md
+```
+
+O workflow responsável pelo CI/CD do back-end está localizado em:
+
+```text
+.github/workflows/backend.yml
+```
+
+---
+
+### 14.3 Criação do workflow
+
+Foi criado o arquivo:
+
+```text
+.github/workflows/backend.yml
+```
+
+O GitHub Actions utiliza esse arquivo para determinar quando o pipeline deve ser executado e quais etapas devem ser realizadas.
+
+O workflow foi configurado para monitorar alterações em:
+
+```yaml
+paths:
+  - "backend/**"
+  - "template.yaml"
+  - ".github/workflows/backend.yml"
+```
+
+Portanto, alterações no código Python, no template de infraestrutura ou no próprio workflow podem iniciar o pipeline.
+
+---
+
+### 14.4 Gatilhos do workflow
+
+O workflow possui dois gatilhos principais:
+
+```yaml
+push:
+  branches:
+    - main
+```
+
+e:
+
+```yaml
+pull_request:
+  branches:
+    - main
+```
+
+Isso permite que o pipeline seja executado tanto quando alterações são enviadas para a branch `main` quanto durante Pull Requests destinados à `main`.
+
+Entretanto, o comportamento de teste e deploy foi separado.
+
+---
+
+### 14.5 Separação entre Testes e Deploy
+
+O pipeline foi dividido em dois jobs:
+
+```text
+test
+  ↓
+deploy
+```
+
+O primeiro job é responsável somente pelos testes.
+
+O segundo job é responsável pelo build e pelo deploy.
+
+O job de deploy possui:
+
+```yaml
+needs: test
+```
+
+Isso significa que o deploy depende do sucesso dos testes.
+
+O fluxo ficou:
+
+```text
+                GitHub Actions
+                       │
+                       ▼
+                ┌─────────────┐
+                │     test    │
+                │    pytest   │
+                └──────┬──────┘
+                       │
+                       ▼
+                 Testes OK?
+                  /       \
+                NÃO       SIM
+                 │          │
+                 ▼          ▼
+               Fim       deploy
+                            │
+                            ▼
+                        SAM Build
+                            │
+                            ▼
+                        SAM Deploy
+```
+
+Essa separação também é importante porque o deploy somente deve ocorrer na branch `main`.
+
+---
+
+## 14.6 Job de testes
+
+O primeiro job foi definido como:
+
+```yaml
+jobs:
+  test:
+    runs-on: ubuntu-latest
+```
+
+O GitHub Actions utiliza uma máquina virtual Linux para executar o processo.
+
+O job possui somente a permissão necessária para ler o conteúdo do repositório:
+
+```yaml
+permissions:
+  contents: read
+```
+
+---
+
+### 14.7 Configuração do Python
+
+Foi utilizada a versão:
+
+```text
+Python 3.14
+```
+
+Configuração:
+
+```yaml
+- name: Configurar Python
+  uses: actions/setup-python@v6
+  with:
+    python-version: "3.14"
+```
+
+A versão corresponde ao runtime utilizado pela função Lambda:
+
+```text
+Runtime: Python 3.14
+```
+
+---
+
+### 14.8 Instalação das dependências
+
+O pipeline instala as bibliotecas necessárias para executar os testes:
+
+```yaml
+- name: Instalar dependencias
+  run: |
+    python -m pip install --upgrade pip
+    pip install pytest boto3
+```
+
+O `pytest` é utilizado para executar os testes automatizados.
+
+O `boto3` é utilizado pelo código da Lambda para comunicação com os serviços AWS.
+
+---
+
+### 14.9 Execução dos testes
+
+Os testes estão localizados em:
+
+```text
+backend/test_lambda_function.py
+```
+
+O workflow executa:
+
+```yaml
+- name: Executar testes
+  working-directory: backend
+  run: pytest
+```
+
+Os testes verificam o comportamento da função Lambda, incluindo:
+
+- retorno HTTP `200`;
+- retorno correto do contador;
+- chamada do `UpdateItem`;
+- incremento do contador;
+- retorno do novo valor.
+
+Os testes foram executados localmente e apresentaram:
+
+```text
+3 passed
+```
+
+Posteriormente, os mesmos testes passaram a ser executados automaticamente pelo GitHub Actions.
+
+---
+
+## 14.10 Primeiro problema encontrado: região AWS
+
+Durante a primeira execução do workflow, os testes falharam devido a uma exceção do `boto3`:
+
+```text
+botocore.exceptions.NoRegionError:
+You must specify a region.
+```
+
+O problema aconteceu porque o ambiente do GitHub Actions não possuía uma região AWS configurada.
+
+Foi adicionada ao workflow:
+
+```yaml
+env:
+  AWS_DEFAULT_REGION: us-east-1
+```
+
+Com isso, o `boto3` passou a reconhecer:
+
+```text
+AWS Region:
+us-east-1
+```
+
+Após essa alteração, os testes foram executados corretamente.
+
+---
+
+## 14.11 Autenticação do GitHub Actions com AWS
+
+Depois de configurar os testes, foi necessário permitir que o GitHub Actions acessasse a AWS para realizar o deploy.
+
+Inicialmente foi avaliada a utilização de credenciais tradicionais, como:
+
+```text
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+```
+
+Porém, essa abordagem não foi utilizada.
+
+Foi implementada autenticação através de:
+
+```text
+OIDC
+```
+
+O AWS SAM possui suporte oficial a OIDC para pipelines de CI/CD utilizando GitHub Actions.
+
+A vantagem é que o GitHub Actions pode obter credenciais temporárias através de uma IAM Role, sem armazenar uma Access Key permanente no repositório.
+
+---
+
+## 14.12 Criação do provedor OIDC
+
+Foi criado no IAM da AWS um provedor de identidade:
+
+```text
+https://token.actions.githubusercontent.com
+```
+
+Audience:
+
+```text
+sts.amazonaws.com
+```
+
+O GitHub Actions utiliza esse provedor para emitir um token OIDC.
+
+O fluxo é:
+
+```text
+GitHub Actions
+      │
+      │ Token OIDC
+      ▼
+AWS IAM
+      │
+      │ valida o token
+      ▼
+IAM Role
+      │
+      ▼
+Credenciais temporárias
+      │
+      ▼
+AWS
+```
+
+---
+
+## 14.13 Criação da IAM Role para o GitHub Actions
+
+Foi criada a role:
+
+```text
+github-actions-oidc-role
+```
+
+ARN:
+
+```text
+arn:aws:iam::696537703431:role/github-actions-oidc-role
+```
+
+Essa é a role utilizada pelo GitHub Actions durante o deploy.
+
+---
+
+## 14.14 Trust Policy do OIDC
+
+A Trust Policy da role foi configurada para permitir que o GitHub Actions do repositório pudesse assumir a role.
+
+Durante os testes foi identificado que o GitHub utiliza um identificador `sub` específico no token OIDC.
+
+O valor identificado foi:
+
+```text
+repo:BarrosAmorim@24548784/cloud-resume-challenge@1353973394:ref:refs/heads/main
+```
+
+A Trust Policy foi então configurada utilizando esse identificador.
+
+Também foi configurado o audience:
+
+```text
+sts.amazonaws.com
+```
+
+Dessa forma, a role não aceita qualquer token OIDC arbitrário.
+
+O AWS SAM documenta que configurações OIDC podem restringir o repositório e a branch responsável pelos deployments.
+
+---
+
+## 14.15 Permissões da IAM Role
+
+Foi criada uma política chamada:
+
+```text
+CloudResumeSAMDeploy
+```
+
+A política concede as permissões necessárias para que o pipeline consiga executar o processo de implantação.
+
+Durante a configuração inicial foram utilizadas permissões para:
+
+```text
+CloudFormation
+Lambda
+DynamoDB
+API Gateway
+S3
+IAM
+```
+
+Também foi utilizada:
+
+```text
+iam:PassRole
+```
+
+para permitir que os serviços envolvidos utilizassem as IAM Roles necessárias.
+
+A configuração foi posteriormente ajustada durante os testes do pipeline.
+
+---
+
+## 14.16 Segundo problema encontrado: iam:GetRole
+
+Na primeira tentativa de deploy, o pipeline conseguiu chegar até o CloudFormation, mas a atualização da Lambda falhou.
+
+O erro apresentado foi:
+
+```text
+not authorized to perform:
+iam:GetRole
+```
+
+A CloudFormation precisava consultar a IAM Role utilizada pela Lambda, mas a role do GitHub Actions não possuía essa permissão.
+
+O recurso que apresentou o problema foi:
+
+```text
+CloudResumeCounter
+```
+
+A role consultada era:
+
+```text
+cloud-resume-challenge-CloudResumeCounterRole-4yDtn2grjeXf
+```
+
+Foi então adicionada à política:
+
+```json
+"iam:GetRole"
+```
+
+A configuração passou a incluir:
+
+```json
+"Action": [
+  "cloudformation:*",
+  "lambda:*",
+  "dynamodb:*",
+  "apigateway:*",
+  "iam:PassRole",
+  "iam:GetRole",
+  "s3:*"
+]
+```
+
+Após essa alteração, o deploy foi executado novamente.
+
+---
+
+## 14.17 Aviso de segurança do IAM
+
+Durante a configuração da política, o IAM Access Analyzer apresentou um aviso relacionado à utilização de:
+
+```text
+iam:PassRole
+```
+
+com:
+
+```text
+Resource: "*"
+```
+
+Esse aviso significa que a permissão permite passar qualquer IAM Role que esteja dentro do escopo da política.
+
+A recomendação da AWS é restringir o recurso para ARNs específicos ou utilizar condições apropriadas.
+
+Neste projeto, essa questão foi identificada como um ponto de melhoria de segurança.
+
+O objetivo futuro é reduzir a permissão para aplicar de maneira mais rigorosa o princípio do menor privilégio.
+
+---
+
+## 14.18 Configuração do AWS SAM CLI
+
+O pipeline utiliza o AWS SAM CLI através da Action oficial:
+
+```yaml
+- name: Configurar AWS SAM CLI
+  uses: aws-actions/setup-sam@v2
+```
+
+O SAM CLI é responsável por preparar e implantar a aplicação serverless.
+
+A AWS documenta oficialmente o uso de `aws-actions/setup-sam@v2` juntamente com `sam build` e `sam deploy` em GitHub Actions.
+
+---
+
+## 14.19 SAM Build
+
+Antes do deploy, o workflow executa:
+
+```bash
+sam build
+```
+
+Essa etapa prepara a aplicação para implantação.
+
+O AWS SAM cria os artefatos necessários dentro do diretório:
+
+```text
+.aws-sam/
+```
+
+O `sam build` é utilizado pelo SAM para preparar a aplicação antes das etapas seguintes, incluindo o deploy.
+
+Fluxo:
+
+```text
+Código-fonte
+    │
+    ▼
+sam build
+    │
+    ▼
+.aws-sam/
+    │
+    ▼
+Artefatos preparados
+```
+
+---
+
+## 14.20 samconfig.toml
+
+O projeto possui o arquivo:
+
+```text
+samconfig.toml
+```
+
+Ele armazena as configurações utilizadas pelo `sam deploy`.
+
+Configuração principal:
+
+```toml
+[default.deploy.parameters]
+stack_name = "cloud-resume-challenge"
+resolve_s3 = true
+s3_prefix = "cloud-resume-challenge"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+image_repositories = []
+```
+
+Com:
+
+```text
+resolve_s3 = true
+```
+
+o AWS SAM pode utilizar automaticamente um bucket gerenciado pelo SAM para armazenar os artefatos necessários para o deployment.
+
+Durante o pipeline foi utilizado o bucket:
+
+```text
+aws-sam-cli-managed-default-samclisourcebucket-esskbuf6nmm1
+```
+
+O `sam deploy` utiliza as configurações armazenadas no `samconfig.toml` para os deployments subsequentes.
+
+---
+
+## 14.21 SAM Deploy
+
+Após o build e a autenticação na AWS, o pipeline executa:
+
+```bash
+sam deploy --no-confirm-changeset --no-fail-on-empty-changeset
+```
+
+O parâmetro:
+
+```text
+--no-confirm-changeset
+```
+
+evita que o pipeline fique aguardando uma confirmação manual.
+
+O parâmetro:
+
+```text
+--no-fail-on-empty-changeset
+```
+
+permite que o pipeline seja concluído mesmo quando não existem alterações para implantar.
+
+O SAM utiliza o CloudFormation como mecanismo de implantação da infraestrutura.
+
+---
+
+## 14.22 Teste do acesso AWS
+
+Antes do deploy foi incluído um teste:
+
+```yaml
+- name: Testar acesso AWS
+  run: aws sts get-caller-identity
+```
+
+Esse comando permite confirmar que o GitHub Actions conseguiu assumir a IAM Role através do OIDC.
+
+O resultado confirmou que a autenticação estava funcionando.
+
+Fluxo:
+
+```text
+GitHub Actions
+      ↓
+Token OIDC
+      ↓
+AWS STS
+      ↓
+AssumeRoleWithWebIdentity
+      ↓
+github-actions-oidc-role
+      ↓
+AWS
+```
+
+---
+
+## 14.23 Workflow final
+
+O workflow final ficou:
+
+```yaml
+name: Backend CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "template.yaml"
+      - ".github/workflows/backend.yml"
+
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "template.yaml"
+      - ".github/workflows/backend.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    env:
+      AWS_DEFAULT_REGION: us-east-1
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v6
+
+      - name: Configurar Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest boto3
+
+      - name: Executar testes
+        working-directory: backend
+        run: pytest
+
+  deploy:
+    needs: test
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      AWS_DEFAULT_REGION: us-east-1
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v6
+
+      - name: Configurar Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Configurar AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+
+      - name: SAM Build
+        run: sam build
+
+      - name: Configurar credenciais AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::696537703431:role/github-actions-oidc-role
+          aws-region: us-east-1
+
+      - name: Testar acesso AWS
+        run: aws sts get-caller-identity
+
+      - name: SAM Deploy
+        run: sam deploy --no-confirm-changeset --no-fail-on-empty-changeset
+```
+
+---
+
+## 14.24 Funcionamento do pipeline
+
+Quando uma alteração é realizada no back-end:
+
+```text
+Desenvolvedor
+      │
+      │ git add
+      │ git commit
+      │ git push
+      ▼
+GitHub
+      │
+      ▼
+GitHub Actions
+      │
+      ▼
+┌───────────────┐
+│     pytest    │
+└───────┬───────┘
+        │
+        │ sucesso
+        ▼
+┌───────────────┐
+│   sam build   │
+└───────┬───────┘
+        │
+        ▼
+┌───────────────┐
+│     OIDC      │
+│   GitHub → AWS│
+└───────┬───────┘
+        │
+        ▼
+┌───────────────┐
+│  sam deploy   │
+└───────┬───────┘
+        │
+        ▼
+  CloudFormation
+        │
+        ├── Lambda
+        ├── API Gateway
+        └── DynamoDB
+```
+
+---
+
+## 14.25 Comportamento em Pull Requests
+
+Pull Requests também executam o job:
+
+```text
+test
+```
+
+Isso permite validar as alterações antes de serem incorporadas à `main`.
+
+O job:
+
+```text
+deploy
+```
+
+não é executado em Pull Requests porque possui a condição:
+
+```yaml
+if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+```
+
+Dessa forma:
+
+```text
+Pull Request
+     ↓
+   pytest
+     ↓
+    OK
+```
+
+mas:
+
+```text
+Pull Request
+     ↓
+   pytest
+     ↓
+    OK
+     ↓
+Deploy ❌
+```
+
+O deploy somente ocorre após um `push` na branch `main`.
+
+---
+
+## 14.26 Validação final
+
+Após todos os ajustes, o pipeline foi executado novamente pelo GitHub Actions.
+
+Resultado:
+
+```text
+test    ✅
+deploy  ✅
+```
+
+O processo completo foi concluído com sucesso.
+
+O GitHub Actions conseguiu:
+
+```text
+✅ Baixar o código
+✅ Configurar Python
+✅ Instalar dependências
+✅ Executar pytest
+✅ Executar SAM Build
+✅ Autenticar na AWS através de OIDC
+✅ Assumir a IAM Role
+✅ Acessar a AWS
+✅ Executar SAM Deploy
+✅ Atualizar a infraestrutura
+```
+
+---
+
+## 14.27 Arquitetura final do CI/CD
+
+```text
+                         GitHub
+                            │
+                            │ push
+                            ▼
+                   ┌─────────────────┐
+                   │ GitHub Actions  │
+                   └────────┬────────┘
+                            │
+                            ▼
+                       ┌─────────┐
+                       │ pytest  │
+                       └────┬────┘
+                            │
+                       Testes OK
+                            │
+                            ▼
+                       ┌─────────┐
+                       │sam build│
+                       └────┬────┘
+                            │
+                            ▼
+                         OIDC
+                            │
+                            ▼
+                   ┌─────────────────┐
+                   │   AWS IAM Role  │
+                   │github-actions-  │
+                   │  oidc-role      │
+                   └────────┬────────┘
+                            │
+                            ▼
+                      sam deploy
+                            │
+                            ▼
+                    CloudFormation
+                            │
+             ┌──────────────┼──────────────┐
+             ▼              ▼              ▼
+          Lambda        API Gateway      DynamoDB
+```
+
+---
+
+## 14.28 Segurança
+
+Um dos principais pontos desta implementação foi evitar o armazenamento de credenciais AWS permanentes no GitHub.
+
+Não foram utilizadas:
+
+```text
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+```
+
+como credenciais permanentes do pipeline.
+
+Em vez disso, foi utilizado:
+
+```text
+GitHub OIDC
+        ↓
+AWS IAM
+        ↓
+Credenciais temporárias
+```
+
+Essa abordagem reduz a necessidade de armazenar credenciais de longa duração no repositório e é suportada oficialmente pela AWS para pipelines GitHub Actions.
+
+---
+
+## Resultado
+
+A Etapa 14 do Cloud Resume Challenge foi concluída.
+
+O back-end agora possui um pipeline de CI/CD automatizado utilizando:
+
+```text
+GitHub
+GitHub Actions
+pytest
+Python
+AWS SAM
+OIDC
+AWS IAM
+CloudFormation
+Lambda
+API Gateway
+DynamoDB
+```
+
+O processo de atualização do back-end deixou de depender de comandos manuais executados pelo desenvolvedor.
+
+Agora, quando uma alteração é enviada para a branch `main`:
+
+```text
+git push
+   ↓
+GitHub Actions
+   ↓
+pytest
+   ↓
+sam build
+   ↓
+OIDC
+   ↓
+sam deploy
+   ↓
+AWS atualizada
+```
+
+### Status
+
+**Etapa 14 — CI/CD (Back-end): Concluída ✅**
 
 ---
 
