@@ -31,3 +31,6 @@ jobs:
 
       - name: Testar acesso AWS
         run: aws sts get-caller-identity
+
+      - name: Publicar frontend no S3
+        run: aws s3 sync frontend/ s3://cloud-resume-rafael-2026 --delete
