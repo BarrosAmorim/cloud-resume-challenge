@@ -5,10 +5,13 @@ on:
     paths:
       - "backend/**"
       - "template.yaml"
+      - ".github/workflows/backend.yml"
+
   pull_request:
     paths:
       - "backend/**"
       - "template.yaml"
+      - ".github/workflows/backend.yml"
 
 jobs:
   test:
