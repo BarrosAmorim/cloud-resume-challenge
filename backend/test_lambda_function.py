@@ -72,3 +72,4 @@ def test_lambda_returns_different_count():
     body = json.loads(response["body"])
 
     assert body["count"] == 100
+# Teste executado pelo GitHub Actions
