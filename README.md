@@ -51,7 +51,7 @@ cloud-resume-challenge/
 - [x] DNS
 - [ ] JavaScript
 - [x] Banco de dados — DynamoDB
-- [ ] API — API Gateway
+- [x] API — API Gateway
 - [x] Backend — Python/Lambda
 - [ ] Testes
 - [ ] Infrastructure as Code
@@ -605,31 +605,30 @@ O item inicial foi criado com a contagem `0`, preparando o banco de dados para q
 
 ---
 
-## Etapa 9 — API
+# Etapa 9 — API — Amazon API Gateway
 
 ### Objetivo
 
-Criar uma API para permitir que o currículo se comunique com o banco de dados DynamoDB de forma segura e organizada.
+Criar uma API para permitir que o currículo se comunique com o backend da aplicação.
 
-De acordo com o desafio, o código JavaScript do currículo não deve acessar diretamente o DynamoDB.
+De acordo com o Cloud Resume Challenge, o JavaScript do currículo não deve acessar diretamente o DynamoDB. A comunicação deve ser realizada através de uma API utilizando o Amazon API Gateway e uma função AWS Lambda.
 
-A comunicação deverá ser realizada através de uma API utilizando o Amazon API Gateway e uma função AWS Lambda.
-
-### Arquitetura planejada
+A arquitetura implementada foi:
 
 ```text
 Navegador
     │
     │ JavaScript
-    │ HTTP GET
-    ▼
-Amazon API Gateway
     │
     │ GET /count
     ▼
+Amazon API Gateway
+    │
+    │ Invoca
+    ▼
 AWS Lambda
     │
-    │ leitura / atualização
+    │ GetItem
     ▼
 Amazon DynamoDB
     │
@@ -643,45 +642,64 @@ CloudResumeVisitorCount
 - AWS Lambda
 - Amazon DynamoDB
 
-### Passo a passo
+---
 
-1. Acessei o serviço **Amazon API Gateway** através do console da AWS.
+### 9.1 Criação do Amazon API Gateway
 
-2. Selecionei a opção para criar uma nova API.
+Acessei o serviço **Amazon API Gateway** através do console da AWS e criei uma nova API.
 
-3. Escolhi o tipo:
-
-```text
-API HTTP
-```
-
-4. Defini o nome da API como:
+Configurações utilizadas:
 
 ```text
+Nome:
 CloudResumeAPI
-```
 
-5. Configurei o tipo de endereço IP como:
+Tipo:
+HTTP API
 
-```text
+Região:
+us-east-1
+
+Endereço IP:
 IPv4
 ```
 
-6. Inicialmente, a API foi criada sem uma integração, pois a função Lambda ainda seria criada e configurada posteriormente.
+Foi escolhido o tipo **HTTP API**, adequado para a comunicação simples necessária neste projeto.
 
-7. Após a criação da API, acessei a área de **Rotas**.
+Inicialmente, a API foi criada sem uma integração, pois a função Lambda seria configurada posteriormente.
 
-8. Criei uma rota específica para o contador de visitantes.
+---
 
-9. Configurei o método HTTP como:
+### 9.2 Configuração do estágio
+
+A API utiliza o estágio padrão:
 
 ```text
-GET
+$default
 ```
 
-10. Configurei o caminho da rota como:
+A opção de implantação automática foi mantida habilitada:
 
 ```text
+Implantação automática:
+Habilitada
+```
+
+Com essa configuração, alterações realizadas na API são automaticamente implantadas no estágio `$default`.
+
+---
+
+### 9.3 Criação da rota
+
+Após criar a API, acessei a área de **Rotas** e criei a rota responsável pelo contador de visitantes.
+
+Configuração:
+
+```text
+Método HTTP:
+GET
+
+Caminho:
 /count
 ```
 
@@ -691,42 +709,111 @@ A rota criada ficou:
 GET /count
 ```
 
-11. A rota será utilizada pelo JavaScript do currículo para solicitar a quantidade atual de visitantes.
+O objetivo dessa rota é permitir que o frontend solicite o valor atual do contador de visitantes.
 
-12. A API utiliza o estágio padrão:
+---
 
-```text
-$default
-```
+### 9.4 Criação da integração com Lambda
 
-13. Mantive a opção de **implantação automática** habilitada no estágio `$default`.
+Inicialmente, a rota `/count` não possuía nenhuma integração configurada.
 
-### Configuração atual
+Foi utilizada a opção:
 
 ```text
-API
-
-└── CloudResumeAPI
-
-Tipo
-└── HTTP API
-
-Endereço IP
-└── IPv4
-
-Estágio
-└── $default
-    └── Implantação automática: habilitada
-
-Rotas
-└── GET /count
+Criar e anexar uma integração
 ```
 
-### Arquitetura planejada
+A integração foi configurada utilizando:
+
+```text
+Tipo de integração:
+Função do Lambda
+
+Região:
+us-east-1
+
+Função do Lambda:
+cloud-resume-counter
+```
+
+Depois da configuração, o fluxo da rota passou a ser:
+
+```text
+GET /count
+     │
+     ▼
+API Gateway
+     │
+     ▼
+cloud-resume-counter
+```
+
+---
+
+### 9.5 Permissão para o API Gateway invocar a Lambda
+
+Durante a criação da integração foi habilitada a opção:
+
+```text
+Conceda permissão ao API Gateway para invocar sua função do Lambda
+```
+
+Essa configuração permite que o API Gateway execute a função `cloud-resume-counter` quando uma requisição chegar à rota `GET /count`.
+
+Essa etapa foi necessária porque o API Gateway precisa ter permissão para invocar a função Lambda.
+
+---
+
+### 9.6 Formato da carga
+
+A integração foi configurada utilizando:
+
+```text
+Versão do formato da carga:
+2.0
+```
+
+O formato 2.0 define como a requisição é enviada pelo API Gateway para o Lambda e como a resposta da função é interpretada.
+
+Não foi necessário configurar mapeamentos personalizados.
+
+Configuração:
+
+```text
+Mapeamento de parâmetros de solicitação:
+Não configurado
+
+Mapeamentos de parâmetros de resposta:
+Não configurado
+```
+
+---
+
+### 9.7 Tempo limite
+
+A integração permaneceu com o tempo limite padrão:
+
+```text
+30000 ms
+```
+
+ou:
+
+```text
+30 segundos
+```
+
+Para uma função simples como a utilizada no projeto, não foi necessário alterar esse valor.
+
+---
+
+### 9.8 Arquitetura da integração
+
+Após a configuração da integração, a arquitetura passou a funcionar desta maneira:
 
 ```text
 ┌─────────────────────────┐
-│     Site / Currículo    │
+│      Site / Currículo   │
 │                         │
 │       JavaScript        │
 └────────────┬────────────┘
@@ -736,68 +823,226 @@ Rotas
 ┌─────────────────────────┐
 │      API Gateway        │
 │                         │
-│    CloudResumeAPI       │
-│      GET /count         │
+│      CloudResumeAPI     │
+│        GET /count       │
 └────────────┬────────────┘
              │
+             │ Invocação
              ▼
 ┌─────────────────────────┐
-│        Lambda           │
+│         Lambda          │
 │                         │
-│ Processa a requisição   │
+│   cloud-resume-counter  │
 └────────────┬────────────┘
              │
-             │ leitura / atualização
+             │ GetItem
              ▼
 ┌─────────────────────────┐
-│       DynamoDB          │
+│        DynamoDB         │
 │                         │
-│ CloudResumeVisitorCount │
+│  CloudResumeVisitorCount│
 │                         │
-│ id: visitor-count       │
-│ count: 0                │
+│  id: visitor-count      │
+│  count: 0               │
 └─────────────────────────┘
 ```
 
-### Por que utilizar uma API?
+---
 
-O JavaScript executado no navegador não deve acessar diretamente o DynamoDB.
+### 9.9 Teste da API
 
-A API cria uma camada intermediária entre o usuário e o banco de dados.
+Depois de configurar a integração, a API foi testada diretamente pelo navegador.
 
-Dessa forma:
+Foi realizada uma requisição:
 
 ```text
-JavaScript
+GET /count
+```
+
+A API retornou:
+
+```json
+{
+  "count": 0
+}
+```
+
+Esse resultado confirmou que a requisição conseguiu percorrer todo o fluxo:
+
+```text
+Navegador
     ↓
 API Gateway
     ↓
 Lambda
     ↓
 DynamoDB
+    ↓
+Resposta
 ```
 
-A Lambda será responsável por processar a requisição e realizar as operações necessárias no DynamoDB.
+---
 
-Essa arquitetura também permite controlar melhor as permissões de acesso ao banco de dados, evitando disponibilizar credenciais ou acesso direto ao DynamoDB no código executado pelo navegador.
+### 9.10 O que aconteceu durante o teste
 
-### Estado atual
+Quando a rota foi acessada, o navegador enviou uma requisição HTTP:
 
-A API e a rota `GET /count` já foram criadas.
+```text
+GET /count
+```
 
-A integração entre o API Gateway e a Lambda ainda precisa ser configurada.
+O API Gateway recebeu a requisição e identificou a rota correspondente.
 
-### Próximos passos
+Em seguida, o API Gateway invocou a função:
 
-- Integrar `GET /count` com a função Lambda.
-- Testar a comunicação entre API Gateway e Lambda.
-- Retornar a quantidade de visitantes através da API.
-- Atualizar o JavaScript para consumir a API.
-- Implementar a atualização do contador no DynamoDB.
+```text
+cloud-resume-counter
+```
+
+A Lambda executou o código Python e utilizou `boto3` para consultar o DynamoDB.
+
+A função realizou uma operação:
+
+```text
+GetItem
+```
+
+na tabela:
+
+```text
+CloudResumeVisitorCount
+```
+
+utilizando a chave:
+
+```text
+id = visitor-count
+```
+
+O DynamoDB retornou:
+
+```text
+count = 0
+```
+
+A Lambda então retornou uma resposta HTTP:
+
+```json
+{
+  "statusCode": 200,
+  "body": "{\"count\": 0}"
+}
+```
+
+O API Gateway processou a resposta e entregou o resultado ao navegador:
+
+```json
+{
+  "count": 0
+}
+```
+
+---
+
+### 9.11 Resultado do teste
+
+O teste confirmou que a integração entre os serviços está funcionando corretamente.
+
+Foi validado o seguinte fluxo:
+
+```text
+✅ Navegador
+       ↓
+✅ API Gateway
+       ↓
+✅ AWS Lambda
+       ↓
+✅ DynamoDB
+```
+
+Também foi confirmado que:
+
+- a rota `GET /count` está funcionando;
+- o API Gateway consegue invocar a Lambda;
+- a Lambda consegue acessar o DynamoDB;
+- a Lambda consegue consultar o item `visitor-count`;
+- o DynamoDB retorna o valor armazenado;
+- a resposta chega corretamente ao navegador.
+
+---
+
+### 9.12 Estado atual do contador
+
+A API já está funcionando, porém o contador ainda está em sua primeira implementação.
+
+Atualmente, a Lambda apenas consulta o valor existente:
+
+```text
+DynamoDB
+    ↓
+GetItem
+    ↓
+Ler count
+    ↓
+Retornar count
+```
+
+Por isso, o resultado atual é:
+
+```json
+{
+  "count": 0
+}
+```
+
+Ainda será necessário implementar a atualização do contador:
+
+```text
+DynamoDB
+    ↓
+Ler count
+    ↓
+Incrementar +1
+    ↓
+Salvar novo valor
+    ↓
+Retornar novo count
+```
+
+O comportamento esperado será:
+
+```text
+Primeiro acesso → 1
+Segundo acesso  → 2
+Terceiro acesso → 3
+Quarto acesso   → 4
+```
+
+Essa implementação será realizada posteriormente, juntamente com a integração do JavaScript com a API.
+
+---
+
+### Resultado
+
+A API do Cloud Resume Challenge foi criada, configurada, integrada ao Lambda e testada com sucesso.
+
+A comunicação entre os serviços está funcionando:
+
+```text
+Frontend
+   ↓
+API Gateway
+   ↓
+Lambda
+   ↓
+DynamoDB
+```
+
+O endpoint `GET /count` conseguiu consultar o valor armazenado no DynamoDB e retornar o resultado ao navegador.
 
 ### Status
 
-Em andamento.
+**Concluído ✅**
 
 ---
 
