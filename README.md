@@ -39,9 +39,9 @@ cloud-resume-challenge/
 - [x] Static Website — Amazon S3
 - [x] HTTPS — CloudFront
 - [x] DNS
-- [ ] JavaScript
-- [ ] Banco de dados — DynamoDB
-- [ ] API — API Gateway
+- [x] JavaScript
+- [x] Banco de dados — DynamoDB
+- [x] API — API Gateway
 - [ ] Backend — Python/Lambda
 - [ ] Testes
 - [ ] Infrastructure as Code
@@ -394,6 +394,339 @@ A configuração demonstra a utilização integrada de **DNS, certificado SSL/TL
 ### Status
 
 **Concluído ✅**
+
+## Etapa 7 — JavaScript
+
+### Objetivo
+
+Adicionar um contador de visitantes ao currículo utilizando JavaScript, preparando a aplicação para posteriormente buscar e atualizar esse valor através de uma API.
+
+### Passo a passo
+
+1. Adicionei uma área no `footer` do currículo para exibir a quantidade de visitantes.
+
+2. Criei o elemento HTML `span` com o identificador `visitor-count` para permitir que o JavaScript alterasse o valor dinamicamente.
+
+3. Inicialmente, defini o contador com o valor `0` no HTML.
+
+4. Criei o arquivo `script.js` dentro da pasta `frontend`.
+
+5. Utilizei JavaScript para localizar o elemento `visitor-count` através do método `getElementById()`.
+
+6. Configurei o JavaScript para alterar o valor exibido no contador para `1`.
+
+7. Vinculei o arquivo `script.js` ao `index.html` através da tag:
+
+```html
+<script src="script.js"></script>
+```
+
+8. Salvei os arquivos e realizei um teste localmente através do navegador.
+
+9. O teste confirmou que o JavaScript foi carregado corretamente e conseguiu alterar o valor exibido no HTML.
+
+### Estrutura utilizada
+
+```text
+frontend/
+├── index.html
+├── style.css
+└── script.js
+```
+
+### Resultado
+
+Foi implementada a primeira versão do contador de visitantes utilizando JavaScript.
+
+O contador atualmente utiliza um valor fixo para validar a integração entre HTML e JavaScript. Nas próximas etapas, esse valor será substituído por uma contagem armazenada no DynamoDB e acessada através de uma API.
+
+### Status
+
+Em andamento.
+
+---
+
+## Etapa 8 — Banco de dados
+
+### Objetivo
+
+Criar um banco de dados para armazenar a quantidade de visitantes do currículo, utilizando o Amazon DynamoDB em modo de capacidade sob demanda.
+
+### Serviço utilizado
+
+- Amazon DynamoDB
+
+### Passo a passo
+
+1. Acessei o serviço Amazon DynamoDB através do console da AWS.
+
+2. Selecionei a opção para criar uma nova tabela.
+
+3. Criei a tabela com o nome:
+
+```text id="e6s0s6"
+CloudResumeVisitorCount
+```
+
+4. Configurei a chave de partição da tabela como:
+
+```text id="4bgjwl"
+id
+```
+
+5. Defini o tipo da chave de partição como `String`.
+
+6. Não utilizei chave de classificação, pois o projeto necessita apenas de um registro para armazenar a contagem de visitantes.
+
+7. Mantive a classe da tabela como **DynamoDB Standard**.
+
+8. Configurei o modo de capacidade como **Sob demanda (On-Demand)**, evitando a necessidade de definir previamente unidades de leitura e gravação.
+
+9. Mantive as configurações padrão de criptografia utilizando uma chave de propriedade da AWS.
+
+10. Adicionei uma tag para identificar o recurso:
+
+```text id="a0gq67"
+Project = CloudResumeChallenge
+```
+
+11. Criei a tabela e aguardei até que seu status fosse alterado para **Ativa**.
+
+12. Acessei a opção de exploração dos itens da tabela.
+
+13. Criei o primeiro item para armazenar a contagem de visitantes.
+
+14. Configurei a chave de partição do item como:
+
+```text id="s7hmbw"
+id = "visitor-count"
+```
+
+15. Adicionei o atributo responsável pela quantidade de visitantes:
+
+```text id="1k8i2q"
+count = 0
+```
+
+### Estrutura da tabela
+
+```text id="ax1n9t"
+CloudResumeVisitorCount
+
+┌────────────────┬───────┐
+│ id             │ count │
+├────────────────┼───────┤
+│ visitor-count  │   0   │
+└────────────────┴───────┘
+```
+
+### Resultado
+
+Foi criada uma tabela DynamoDB em modo de capacidade sob demanda para armazenar a quantidade de visitantes do currículo.
+
+O item inicial foi criado com a contagem `0`, preparando o banco de dados para que, nas próximas etapas, a aplicação possa consultar e atualizar esse valor através de uma API.
+
+### Status
+
+Concluído ✅
+
+---
+
+## Etapa 9 — API
+
+### Objetivo
+
+Criar uma API para permitir que o currículo se comunique com o banco de dados DynamoDB de forma segura e organizada.
+
+De acordo com o desafio, o código JavaScript do currículo não deve acessar diretamente o DynamoDB. A comunicação deverá ser realizada através de uma API, utilizando o Amazon API Gateway e uma função AWS Lambda.
+
+A arquitetura planejada para esta etapa é:
+
+```text
+Navegador
+    │
+    │ JavaScript
+    │ HTTP GET
+    ▼
+Amazon API Gateway
+    │
+    │ GET /count
+    ▼
+AWS Lambda
+    │
+    │ leitura / atualização
+    ▼
+Amazon DynamoDB
+    │
+    ▼
+CloudResumeVisitorCount
+```
+
+### Serviços utilizados
+
+- Amazon API Gateway
+- AWS Lambda
+- Amazon DynamoDB
+
+### Passo a passo
+
+1. Acessei o serviço **Amazon API Gateway** através do console da AWS.
+
+2. Selecionei a opção para criar uma nova API.
+
+3. Escolhi o tipo:
+
+```text
+API HTTP
+```
+
+A opção foi escolhida por ser adequada para uma API simples que será utilizada pelo currículo para realizar requisições HTTP.
+
+4. Defini o nome da API como:
+
+```text
+CloudResumeAPI
+```
+
+5. Configurei o tipo de endereço IP como:
+
+```text
+IPv4
+```
+
+6. Inicialmente, a API foi criada sem uma integração, pois a função Lambda ainda será criada e configurada posteriormente.
+
+7. Após a criação da API, acessei a área de **Rotas**.
+
+8. Criei uma rota específica para o contador de visitantes.
+
+9. Configurei o método HTTP como:
+
+```text
+GET
+```
+
+10. Configurei o caminho da rota como:
+
+```text
+/count
+```
+
+A rota criada ficou:
+
+```text
+GET /count
+```
+
+11. A rota será utilizada posteriormente pelo JavaScript do currículo para solicitar a quantidade atual de visitantes.
+
+12. A API utiliza o estágio padrão:
+
+```text
+$default
+```
+
+13. Mantive a opção de **implantação automática** habilitada no estágio `$default`.
+
+Com isso, as alterações realizadas na API podem ser disponibilizadas automaticamente nesse estágio.
+
+### Configuração atual
+
+```text
+API
+└── CloudResumeAPI
+
+Tipo
+└── HTTP API
+
+Endereço IP
+└── IPv4
+
+Estágio
+└── $default
+    └── Implantação automática: habilitada
+
+Rotas
+└── GET /count
+```
+
+### Arquitetura planejada
+
+```text
+┌─────────────────────────┐
+│      Site / Currículo   │
+│                         │
+│       JavaScript        │
+└────────────┬────────────┘
+             │
+             │ GET /count
+             ▼
+┌─────────────────────────┐
+│      API Gateway        │
+│                         │
+│    CloudResumeAPI       │
+│       GET /count        │
+└────────────┬────────────┘
+             │
+             ▼
+┌─────────────────────────┐
+│        Lambda           │
+│                         │
+│  Processa a requisição  │
+└────────────┬────────────┘
+             │
+             │ leitura / atualização
+             ▼
+┌─────────────────────────┐
+│       DynamoDB          │
+│                         │
+│ CloudResumeVisitorCount │
+│                         │
+│ id: visitor-count       │
+│ count: 0                │
+└─────────────────────────┘
+```
+
+### Por que utilizar uma API?
+
+O JavaScript do navegador não deve acessar diretamente o DynamoDB.
+
+A API cria uma camada intermediária entre o usuário e o banco de dados.
+
+Dessa forma:
+
+```text
+JavaScript
+    ↓
+API Gateway
+    ↓
+Lambda
+    ↓
+DynamoDB
+```
+
+A Lambda será responsável por processar a requisição e realizar as operações necessárias no DynamoDB.
+
+Essa arquitetura também permite controlar melhor as permissões de acesso ao banco de dados, evitando disponibilizar credenciais ou acesso direto ao DynamoDB no código executado pelo navegador.
+
+### Estado atual
+
+A API e a rota já foram criadas, porém a integração com a Lambda ainda não foi configurada.
+
+### Próximos passos
+
+- Criar a função AWS Lambda.
+- Configurar a integração entre API Gateway e Lambda.
+- Permitir que a Lambda acesse o DynamoDB.
+- Testar a rota `GET /count`.
+- Retornar a quantidade de visitantes para o navegador.
+- Posteriormente substituir o contador fixo do `script.js` pelo valor retornado pela API.
+
+### Status
+
+Em andamento.
+
+---
 
 ## Objetivo profissional
 
