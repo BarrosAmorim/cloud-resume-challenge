@@ -20,3 +20,20 @@ output "acm_validation_records" {
     }
   }
 }
+
+# Informações do banco e da tabela do dynamo
+output "dynamodb_table_name" {
+  description = "Nome da tabela do DynamoDB para o contador de visitantes"
+  value       = aws_dynamodb_table.visitor_counter.name
+}
+
+output "dynamodb_table_arn" {
+  description = "ARN da tabela do DynamoDB (utilizado nas permissoes IAM da Lambda)"
+  value       = aws_dynamodb_table.visitor_counter.arn
+}
+
+# Exportar a URL da API
+output "visitor_counter_api_url" {
+  description = "Endpoint HTTPS publico do API Gateway para o contador de visitas"
+  value       = aws_apigatewayv2_stage.default_stage.invoke_url
+}

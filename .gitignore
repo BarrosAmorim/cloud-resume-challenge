@@ -3,4 +3,15 @@
 *.tfstate
 *.tfstate.backup
 *.tfvars
-.terraform.lock.hcl
+terraform.tfstate*
+
+# Artifacts de build
+*.zip
+backend/*.zip
+terraform/*.zip
+
+# Python (para testes locais futuros)
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
