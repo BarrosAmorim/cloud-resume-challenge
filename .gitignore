@@ -1,17 +1,49 @@
 # Terraform
 .terraform/
+.terraform.lock.hcl
 *.tfstate
+*.tfstate.*
 *.tfstate.backup
 *.tfvars
-terraform.tfstate*
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.rc
+terraform.rc
 
-# Artifacts de build
+# AWS & Credenciais Locais
+.aws/
+.env
+.env.*
+*.pem
+
+# Python & Ambientes Virtuais
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+ENV/
+env/
+dist/
+build/
+*.egg-info/
+
+# Artefatos de Build / Deploy
 *.zip
 backend/*.zip
 terraform/*.zip
 
-# Python (para testes locais futuros)
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.env
+# Sistema Operacional & Editores (Raspberry Pi, Mac, Linux, Windows, VS Code)
+.DS_Store
+Thumbs.db
+*~
+*.swp
+*.swo
+.vscode/
+.idea/
