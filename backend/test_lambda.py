@@ -48,6 +48,6 @@ def test_lambda_handler_handles_exception():
 
     response = lambda_function.lambda_handler({}, None)
 
-    assert response["statusCode"] == 999
+    assert response["statusCode"] == 500
     body = json.loads(response["body"])
     assert "error" in body
