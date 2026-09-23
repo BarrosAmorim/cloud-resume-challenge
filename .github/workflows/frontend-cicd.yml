@@ -1,0 +1,40 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-cicd.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write # Necessário para solicitar o JWT do OIDC
+  contents: read  # Permite ao runner fazer checkout do código
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::696537703431:role/cloud-resume-github-actions-role
+          aws-region: us-east-1
+
+      - name: Sync static files to S3
+        run: |
+          aws s3 sync frontend/ s3://cloud-resume-challenge-rafael \
+            --delete \
+            --cache-control "public, max-age=0, must-revalidate"
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id E23LS84QN40NHF \
+            --paths "/*"

@@ -69,3 +69,49 @@ output "github_actions_role_arn" {
   description = "ARN da Role IAM para ser usada no workflow do GitHub Actions"
   value       = aws_iam_role.github_actions_role.arn
 }
+
+# 6. Politica de Menor Privilegio para Frontend (S3 Sync + CloudFront Invalidation)
+resource "aws_iam_policy" "github_actions_frontend_policy" {
+  name        = "cloud-resume-github-actions-frontend-policy"
+  description = "Permite ao GitHub Actions sincronizar arquivos no S3 e invalidar o CloudFront"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "S3SyncPermissions"
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:ListBucket",
+          "s3:DeleteObject"
+        ]
+        Resource = [
+          aws_s3_bucket.resume_bucket.arn,
+          "${aws_s3_bucket.resume_bucket.arn}/*"
+        ]
+      },
+      {
+        Sid    = "CloudFrontInvalidation"
+        Effect = "Allow"
+        Action = [
+          "cloudfront:CreateInvalidation"
+        ]
+        Resource = aws_cloudfront_distribution.s3_distribution.arn
+      }
+    ]
+  })
+}
+
+# 7. Anexar a politica de frontend a Role existente do GitHub Actions
+resource "aws_iam_role_policy_attachment" "github_actions_frontend_attach" {
+  role       = aws_iam_role.github_actions_role.name
+  policy_arn = aws_iam_policy.github_actions_frontend_policy.arn
+}
+
+# 8. Output do ID da distribuicao CloudFront
+output "cloudfront_distribution_id" {
+  description = "ID da distribuicao CloudFront para a pipeline de front-end"
+  value       = aws_cloudfront_distribution.s3_distribution.id
+}
