@@ -1,0 +1,55 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-cicd.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write # Obrigatório para solicitar o JWT do OIDC
+  contents: read  # Permite ao runner fazer checkout do código
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements-dev.txt
+
+      - name: Run unit tests with pytest
+        run: |
+          cd backend
+          pytest -v
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::696537703431:role/cloud-resume-github-actions-role
+          aws-region: us-east-1
+
+      - name: Package Lambda code
+        run: |
+          cd backend
+          zip lambda_function.zip lambda_function.py
+
+      - name: Deploy to AWS Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name cloud-resume-visitor-counter \
+            --zip-file fileb://backend/lambda_function.zip
