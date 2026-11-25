@@ -17,8 +17,8 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
 
   # Nomes de domínio personalizados
   aliases = [
-    "barrosamorimd.work",
-    "www.barrosamorimd.work"
+    "rpi5.stream",
+    "www.rpi5.stream"
   ]
 
   origin {

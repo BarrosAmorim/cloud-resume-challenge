@@ -4,7 +4,7 @@
 
 🌐 **Acesse o desafio:** [https://cloudresumechallenge.dev/docs/the-challenge/aws/]
 
-🌐 **Acesse o currículo no ar:** [https://barrosamorimd.work]
+🌐 **Acesse o currículo no ar:** [https://rpi5.stream]
 
 ---
 

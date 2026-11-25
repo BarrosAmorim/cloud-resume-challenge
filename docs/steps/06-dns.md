@@ -1,7 +1,7 @@
 # Etapa 06: Configuração de DNS e Domínio Personalizado
 
 ## 1. Objetivo
-- Associar um domínio personalizado (`barrosamorimd.work` e `www.barrosamorimd.work`) à distribuição do Amazon CloudFront.
+- Associar um domínio personalizado (`rpi5.stream` e `www.rpi5.stream`) à distribuição do Amazon CloudFront.
 - Solicitar e validar um certificado SSL/TLS público e gratuito através do AWS Certificate Manager (ACM).
 - Configurar os apontamentos de tráfego e validação no painel DNS da Cloudflare mantendo as melhores práticas de renovação contínua e entrega segura.
 - Gerir a infraestrutura de certificados e a associação à CDN via Terraform (IaC).
@@ -29,11 +29,11 @@ Criação do recurso para solicitar o certificado cobrindo o domínio raiz e o s
 ```hcl
 # Certificado SSL/TLS público gerenciado no AWS Certificate Manager (ACM)
 resource "aws_acm_certificate" "cert" {
-  domain_name       = "barrosamorimd.work"
+  domain_name       = "rpi5.stream"
   validation_method = "DNS"
 
   subject_alternative_names = [
-    "www.barrosamorimd.work"
+    "www.rpi5.stream"
   ]
 
   lifecycle {
@@ -85,8 +85,8 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
 
   # Nomes de domínio personalizados
   aliases = [
-    "barrosamorimd.work",
-    "www.barrosamorimd.work"
+    "rpi5.stream",
+    "www.rpi5.stream"
   ]
 
   origin {
@@ -153,10 +153,10 @@ A tabela DNS na Cloudflare foi configurada com 4 registos CNAME dedicados (todos
 
 | Tipo | Nome | Conteúdo / Destino | Finalidade |
 | :--- | :--- | :--- | :--- |
-| **CNAME** | `@` | `d3ju87qn7qf8sw.cloudfront.net` | Roteamento de tráfego do domínio raiz |
-| **CNAME** | `www` | `d3ju87qn7qf8sw.cloudfront.net` | Roteamento de tráfego do subdomínio www |
-| **CNAME** | `_79fadd4bc97a9f9b7971bdbbe56004bc` | `_751991cbeb5cb4dd262876982f9b5387.jkddzztszm.acm-validations.aws.` | Validação e renovação contínua da raiz |
-| **CNAME** | `_2e83f90d66e42d8972a64fcb0e3293c4.www` | `_c1abc014b6e36b380d03d2b274df75b5.wzccmgtwzk.acm-validations.aws.` | Validação e renovação contínua do subdomínio www |
+| **CNAME** | `@` | `d26is0r520jrs6.cloudfront.net` | Roteamento de tráfego do domínio raiz |
+| **CNAME** | `www` | `d26is0r520jrs6.cloudfront.net` | Roteamento de tráfego do subdomínio www |
+| **CNAME** | `_cdb0f924bdf1049ec851f7dff18281cb` | `_4f2368697f78c320045ad50b4fd356ee.wzccmgtwzk.acm-validations.aws.` | Validação e renovação contínua da raiz |
+| **CNAME** | `_ddbd359b7c8b918b9955ed2f05820e7e.www` | `_5e001bbf4ace74dae24bf89267e5702d.wzccmgtwzk.acm-validations.aws.` | Validação e renovação contínua do subdomínio www |
 
 ---
 
@@ -166,7 +166,7 @@ A tabela DNS na Cloudflare foi configurada com 4 registos CNAME dedicados (todos
 Execução do `dig` para validar a resolução Anycast do domínio raiz:
 
 ```bash
-dig +short barrosamorimd.work
+dig +short rpi5.stream
 ```
 
 *Retorno obtido:*
@@ -183,8 +183,8 @@ dig +short barrosamorimd.work
 Execução de chamadas aos cabeçalhos HTTP nos dois domínios:
 
 ```bash
-curl -I [https://barrosamorimd.work](https://barrosamorimd.work)
-curl -I [https://www.barrosamorimd.work](https://www.barrosamorimd.work)
+curl -I [https://rpi5.stream](https://rpi5.stream)
+curl -I [https://www.rpi5.stream](https://www.rpi5.stream)
 ```
 
 *Retorno obtido:*

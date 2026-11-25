@@ -1,11 +1,10 @@
-# Certificado SSL/TLS público gerenciado no AWS Certificate Manager (ACM)
+# Certificado SSL/TLS publico gerenciado no AWS Certificate Manager (ACM)
 resource "aws_acm_certificate" "cert" {
-  domain_name       = "barrosamorimd.work"
+  domain_name       = "rpi5.stream"
   validation_method = "DNS"
 
-  # Opcional: adicionar www também
   subject_alternative_names = [
-    "www.barrosamorimd.work"
+    "www.rpi5.stream"
   ]
 
   lifecycle {
